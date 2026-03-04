@@ -10,209 +10,81 @@ export default function Signup() {
   const loc = useLocation();
   const qs = useMemo(() => new URLSearchParams(loc.search), [loc.search]);
 
-  const [role, setRole] = useState(qs.get("role") === "admin" ? "admin" : "user");
-  const [form, setForm] = useState({
-    name: "",
-    email: qs.get("email") || "",
-    password: "",
-  });
+  const [role, setRole] = useState(qs.get("role") || "user");
+  const [form, setForm] = useState({ name: "", email: qs.get("email") || "", password: "", organization: "" });
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  // Admin ID reveal state
-  const [adminReveal, setAdminReveal] = useState({ show: false, adminId: "" });
-
-  // Input change handler
   const onChange = (e) => {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
     if (error) setError("");
   };
 
-  // Copy admin ID & navigate to login
-  const copyAdminIdAndGotoLogin = async () => {
-    const id = adminReveal.adminId;
-    if (!id) return;
-
-    try {
-      await navigator.clipboard.writeText(id);
-    } catch {
-      const ta = document.createElement("textarea");
-      ta.value = id;
-      ta.style.position = "fixed";
-      ta.style.opacity = "0";
-      document.body.appendChild(ta);
-      ta.focus();
-      ta.select();
-      try {
-        document.execCommand("copy");
-      } finally {
-        document.body.removeChild(ta);
-      }
-    } finally {
-      sessionStorage.setItem(
-        "signupBanner",
-        `Admin ID copied: ${id}. Please sign in using this ID.`
-      );
-      nav(`/login?role=admin&adminId=${encodeURIComponent(id)}`, { replace: true });
-    }
-  };
-
-  // Skip copy, just navigate
-  const gotoAdminLoginWithoutCopy = () => {
-    const id = adminReveal.adminId;
-    sessionStorage.setItem(
-      "signupBanner",
-      `Your Admin ID is ${id}. Please sign in using this ID.`
-    );
-    nav(`/login?role=admin&adminId=${encodeURIComponent(id)}`, { replace: true });
-  };
-
-  // Form submission
   const submit = async (e) => {
     e.preventDefault();
     setError("");
+    const { name, email, password, organization } = form;
+    if (!name || !email || !password) { setError("Name, email and password are required."); return; }
+    if (role === "user" && !organization) { setError("Organization name is required for AUA/KUA entities."); return; }
 
-    const { name, email, password } = form;
-    if (!name || !email || !password) {
-      setError("All fields are required.");
-      return;
-    }
-
+    setLoading(true);
     try {
-      const res = await axios.post("http://localhost:3000/test/add-user", {
-        name: name.trim(),
-        email: email.trim(),
-        password: password.trim(),
-        role,
+      await axios.post("http://localhost:3000/api/auth/signup", {
+        name: name.trim(), email: email.trim(), password: password.trim(), role, organization: organization.trim() || null,
       });
-
-      if (role === "user") {
-        sessionStorage.setItem(
-          "signupBanner",
-          "Your account was created. Please sign in."
-        );
-        nav(`/login?role=user&email=${encodeURIComponent(email.trim())}`, {
-          replace: true,
-        });
-      } else {
-        // Admin: show generated admin ID
-        const adminId = res.data.adminId;
-        setAdminReveal({ show: true, adminId });
-      }
+      sessionStorage.setItem("signupBanner", "Account created successfully. Please sign in.");
+      nav(`/login?role=${role}&email=${encodeURIComponent(email.trim())}`, { replace: true });
     } catch (err) {
       const msg = err?.response?.data?.error;
-
-      if (msg === "USER_EXISTS") {
-        setError("An account with this email already exists. Try logging in.");
-      } else if (msg === "ADMIN_EMAIL_TAKEN") {
-        setError(
-          "An admin with this email already exists. Try logging in or recovery."
-        );
-      } else {
-        setError("Something went wrong.");
-      }
+      if (msg === "EMAIL_TAKEN") setError("An account with this email already exists for this role.");
+      else setError(msg || "Something went wrong.");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="auth-wrap">
-      <h1>Create account</h1>
-
-      <RoleTabs
-        role={role}
-        onChange={(r) => {
-          setRole(r);
-          if (error) setError("");
-        }}
-      />
-
-      <form className="auth-form" onSubmit={submit}>
-        <label>Full name</label>
-        <input
-          name="name"
-          type="text"
-          value={form.name}
-          onChange={onChange}
-          placeholder="Your name"
-        />
-
-        {/* Email input */}
-        {role === "user" && (
-          <>
-            <label>Email</label>
-            <input
-              name="email"
-              type="email"
-              value={form.email}
-              onChange={onChange}
-              placeholder="you@org.com"
-            />
-          </>
-        )}
-
-        {role === "admin" && (
-          <>
-            <label>Official Email</label>
-            <input
-              name="email"
-              type="email"
-              value={form.email}
-              onChange={onChange}
-              placeholder="admin@org.com"
-            />
-          </>
-        )}
-
-        <label>Password</label>
-        <input
-          name="password"
-          type="password"
-          value={form.password}
-          onChange={onChange}
-          placeholder="Create a strong password"
-        />
-
-        {error && <div className="auth-error">{error}</div>}
-
-        <button className="primary" type="submit">
-          Sign up
-        </button>
-
-        <p className="helper">
-          Already have an account?{" "}
-          <Link
-            to={`/login?role=${role}${
-              role === "user" && form.email
-                ? `&email=${encodeURIComponent(form.email)}`
-                : ""
-            }`}
-          >
-            Sign in
-          </Link>
-        </p>
-      </form>
-
-      {/* Admin ID Reveal Card */}
-      {adminReveal.show && (
-        <div className="reveal-backdrop">
-          <div className="reveal-card">
-            <h2>Admin ID generated</h2>
-            <p className="muted">
-              Save this ID securely. You’ll use it to sign in.
-            </p>
-
-            <div className="code-row">
-              <code className="code-chip">{adminReveal.adminId}</code>
-              <button className="primary" onClick={copyAdminIdAndGotoLogin}>
-                Copy &amp; Go to Login
-              </button>
-            </div>
-
-            <button className="secondary" onClick={gotoAdminLoginWithoutCopy}>
-              Skip &amp; Go to Login
-            </button>
-          </div>
+    <div className="auth-page">
+      <div className="auth-wrap">
+        <div className="auth-header">
+          <div className="auth-logo">🛡️</div>
+          <h1>Create account</h1>
+          <p className="auth-subtitle">AUA/KUA Compliance Portal</p>
         </div>
-      )}
+
+        <RoleTabs role={role} onChange={(r) => { setRole(r); if (error) setError(""); }} />
+
+        <form className="auth-form" onSubmit={submit}>
+          <label>Full name</label>
+          <input name="name" type="text" value={form.name} onChange={onChange} placeholder="Your full name" />
+
+          <label>Email</label>
+          <input name="email" type="email" value={form.email} onChange={onChange} placeholder="you@organization.com" />
+
+          {role === "user" && (
+            <>
+              <label>Organization</label>
+              <input name="organization" type="text" value={form.organization} onChange={onChange} placeholder="Entity / Ministry / Department name" />
+            </>
+          )}
+
+          <label>Password</label>
+          <input name="password" type="password" value={form.password} onChange={onChange} placeholder="Create a strong password" />
+
+          {error && <div className="auth-error">{error}</div>}
+
+          <button className="primary" type="submit" disabled={loading}>
+            {loading ? "Creating..." : "Sign up"}
+          </button>
+
+          <p className="helper">
+            Already have an account?{" "}
+            <Link to={`/login?role=${role}${form.email ? `&email=${encodeURIComponent(form.email)}` : ""}`}>
+              Sign in
+            </Link>
+          </p>
+        </form>
+      </div>
     </div>
   );
 }
