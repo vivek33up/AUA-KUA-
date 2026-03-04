@@ -2,7 +2,7 @@
 import { useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import RoleTabs from "../components/RoleTabs";
-import { signupUser, signupAdmin } from "../services/auth";
+import axios from "axios";
 import "../styles/auth.css";
 
 export default function Signup() {
@@ -10,9 +10,7 @@ export default function Signup() {
   const loc = useLocation();
   const qs = useMemo(() => new URLSearchParams(loc.search), [loc.search]);
 
-  const [role, setRole] = useState(
-    qs.get("role") === "admin" ? "admin" : "user",
-  );
+  const [role, setRole] = useState(qs.get("role") === "admin" ? "admin" : "user");
   const [form, setForm] = useState({
     name: "",
     email: qs.get("email") || "",
@@ -20,14 +18,16 @@ export default function Signup() {
   });
   const [error, setError] = useState("");
 
-  // After admin signup, reveal the generated Admin ID with a Copy button
+  // Admin ID reveal state
   const [adminReveal, setAdminReveal] = useState({ show: false, adminId: "" });
 
+  // Input change handler
   const onChange = (e) => {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
     if (error) setError("");
   };
 
+  // Copy admin ID & navigate to login
   const copyAdminIdAndGotoLogin = async () => {
     const id = adminReveal.adminId;
     if (!id) return;
@@ -50,93 +50,65 @@ export default function Signup() {
     } finally {
       sessionStorage.setItem(
         "signupBanner",
-        `Admin ID copied: ${id}. Please sign in using this ID.`,
+        `Admin ID copied: ${id}. Please sign in using this ID.`
       );
-      nav(`/login?role=admin&adminId=${encodeURIComponent(id)}`, {
-        replace: true,
-      });
+      nav(`/login?role=admin&adminId=${encodeURIComponent(id)}`, { replace: true });
     }
   };
 
+  // Skip copy, just navigate
   const gotoAdminLoginWithoutCopy = () => {
     const id = adminReveal.adminId;
     sessionStorage.setItem(
       "signupBanner",
-      `Your Admin ID is ${id}. Please sign in using this ID.`,
+      `Your Admin ID is ${id}. Please sign in using this ID.`
     );
-    nav(`/login?role=admin&adminId=${encodeURIComponent(id)}`, {
-      replace: true,
-    });
+    nav(`/login?role=admin&adminId=${encodeURIComponent(id)}`, { replace: true });
   };
 
-  const submit = (e) => {
+  // Form submission
+  const submit = async (e) => {
     e.preventDefault();
     setError("");
 
-    if (role === "user") {
-      const { name, email, password } = form;
-      if (!name || !email || !password) {
-        setError("All fields are required.");
-        return;
-      }
-      try {
-        signupUser({
-          name: name.trim(),
-          email: email.trim(),
-          password: password.trim(),
-        });
+    const { name, email, password } = form;
+    if (!name || !email || !password) {
+      setError("All fields are required.");
+      return;
+    }
+
+    try {
+      const res = await axios.post("http://localhost:3000/test/add-user", {
+        name: name.trim(),
+        email: email.trim(),
+        password: password.trim(),
+        role,
+      });
+
+      if (role === "user") {
         sessionStorage.setItem(
           "signupBanner",
-          "Your account was created. Please sign in.",
+          "Your account was created. Please sign in."
         );
         nav(`/login?role=user&email=${encodeURIComponent(email.trim())}`, {
           replace: true,
         });
-      } catch (err) {
-        if (err && typeof err === "object" && "message" in err) {
-          const msg = err.message;
-          if (msg === "USER_EXISTS") {
-            setError(
-              "An account with this email already exists. Try logging in.",
-            );
-          } else {
-            setError(
-              typeof msg === "string" && msg ? msg : "Something went wrong.",
-            );
-          }
-        } else {
-          setError("Something went wrong.");
-        }
+      } else {
+        // Admin: show generated admin ID
+        const adminId = res.data.adminId;
+        setAdminReveal({ show: true, adminId });
       }
-    } else {
-      const { name, email, password } = form;
-      if (!name || !email || !password) {
-        setError("All fields are required.");
-        return;
-      }
-      try {
-        const admin = signupAdmin({
-          name: name.trim(),
-          email: email.trim(),
-          password: password.trim(),
-        });
+    } catch (err) {
+      const msg = err?.response?.data?.error;
 
-        setAdminReveal({ show: true, adminId: admin.adminId });
-      } catch (err) {
-        if (err && typeof err === "object" && "message" in err) {
-          const msg = err.message;
-          if (msg === "ADMIN_EMAIL_TAKEN") {
-            setError(
-              "An admin with this email already exists. Try logging in or recovery.",
-            );
-          } else {
-            setError(
-              typeof msg === "string" && msg ? msg : "Something went wrong.",
-            );
-          }
-        } else {
-          setError("Something went wrong.");
-        }
+      if (msg === "USER_EXISTS") {
+        setError("An account with this email already exists. Try logging in.");
+      } else if (msg === "ADMIN_EMAIL_TAKEN") {
+        setError(
+          "An admin with this email already exists. Try logging in or recovery."
+        );
+      } else {
+        setError("Something went wrong.");
       }
     }
   };
@@ -163,7 +135,7 @@ export default function Signup() {
           placeholder="Your name"
         />
 
-        {/* USER fields */}
+        {/* Email input */}
         {role === "user" && (
           <>
             <label>Email</label>
@@ -177,7 +149,6 @@ export default function Signup() {
           </>
         )}
 
-        {/* ADMIN fields (Admin ID is generated; not an input) */}
         {role === "admin" && (
           <>
             <label>Official Email</label>

@@ -30,9 +30,7 @@ export default function App() {
       <Route
         path="/application"
         element={
-          <ProtectedRoute role="user">
             <ApplicationIndex />
-          </ProtectedRoute>
         }
       />
 
@@ -40,19 +38,15 @@ export default function App() {
       <Route
         path="/application/form"
         element={
-          <ProtectedRoute role="user">
             <Form />
-          </ProtectedRoute>
         }
       />
 
       {/* ADMIN: Dashboard */}
       <Route
         path="/admin"
-        element={
-          <ProtectedRoute role="admin">
+        element={    
             <AdminDashboard />
-          </ProtectedRoute>
         }
       />
 
