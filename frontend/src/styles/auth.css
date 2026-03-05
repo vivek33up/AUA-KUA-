@@ -63,6 +63,13 @@
   padding: 0.5rem 0.75rem;
   border-radius: 8px;
 }
+.auth-success {
+  color: #15803d;
+  background: #dcfce7;
+  border: 1px solid #86efac;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+}
 .helper {
   font-size: 0.9rem;
   color: #444;

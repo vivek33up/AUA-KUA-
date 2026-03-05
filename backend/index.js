@@ -167,6 +167,38 @@ app.post("/test/reset-password", async (req, res) => {
   }
 });
 
+/************ FORGOT PASSWORD - USER ************/
+app.post("/test/forgot-password-user", async (req, res) => {
+  try {
+    const { email, newPassword } = req.body;
+    if (!email || !newPassword) {
+      return res.status(400).json({ error: "Email and new password are required." });
+    }
+
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(and(eq(users.email, email), eq(users.role, "user")));
+
+    if (!user) {
+      return res.status(404).json({ error: "USER_NOT_FOUND" });
+    }
+
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
+
+    await db
+      .update(users)
+      .set({ password: hashedPassword })
+      .where(eq(users.userId, user.userId));
+
+    res.json({ message: "Password reset successfully. Please login with your new password." });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 /************ FORMS & STRUCTURE (Protected — any authenticated user) ************/
 
 app.get("/forms", authenticateToken, async (req, res) => {

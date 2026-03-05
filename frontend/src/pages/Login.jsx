@@ -184,6 +184,8 @@ export default function Login() {
               >
                 Create one
               </Link>
+              {" · "}
+              <Link to="/forgot-password">Forgot password?</Link>
             </>
           )}
         </p>

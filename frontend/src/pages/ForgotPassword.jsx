@@ -1,13 +1,13 @@
-// src/pages/ResetAdminPassword.jsx
+// src/pages/ForgotPassword.jsx
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import "../styles/auth.css";
 
-export default function ResetAdminPassword() {
+export default function ForgotPassword() {
   const nav = useNavigate();
   const [form, setForm] = useState({
-    adminId: "",
+    email: "",
     newPassword: "",
     confirmPassword: "",
   });
@@ -25,11 +25,11 @@ export default function ResetAdminPassword() {
     setError("");
     setSuccess("");
 
-    const adminId = form.adminId.trim();
+    const email = form.email.trim();
     const newPassword = form.newPassword.trim();
     const confirmPassword = form.confirmPassword.trim();
 
-    if (!adminId || !newPassword || !confirmPassword) {
+    if (!email || !newPassword || !confirmPassword) {
       setError("All fields are required.");
       return;
     }
@@ -45,18 +45,19 @@ export default function ResetAdminPassword() {
     }
 
     try {
-      await axios.post("http://localhost:3000/test/reset-password", {
-        adminId,
+      await axios.post("http://localhost:3000/test/forgot-password-user", {
+        email,
         newPassword,
       });
+
       setSuccess("Password reset successful! Redirecting to login...");
       setTimeout(() => {
-        nav(`/login?role=admin&adminId=${encodeURIComponent(adminId)}`, { replace: true });
+        nav(`/login?role=user&email=${encodeURIComponent(email)}`, { replace: true });
       }, 1500);
     } catch (err) {
       const msg = err?.response?.data?.error;
-      if (msg === "Admin ID not found.") {
-        setError("Admin ID not found. Check your ID.");
+      if (msg === "USER_NOT_FOUND") {
+        setError("No account found with this email.");
       } else {
         setError(msg || "Something went wrong.");
       }
@@ -65,16 +66,16 @@ export default function ResetAdminPassword() {
 
   return (
     <div className="auth-wrap">
-      <h1>Reset Admin Password</h1>
+      <h1>Reset Password</h1>
 
       <form className="auth-form" onSubmit={submit}>
-        <label>Admin ID</label>
+        <label>Email</label>
         <input
-          name="adminId"
-          type="text"
-          value={form.adminId}
+          name="email"
+          type="email"
+          value={form.email}
           onChange={onChange}
-          placeholder="e.g. ADM-20260304-XXXXXX"
+          placeholder="you@org.com"
           autoFocus
         />
 
@@ -104,7 +105,10 @@ export default function ResetAdminPassword() {
         </button>
 
         <p className="helper">
-          Back to <Link to="/login?role=admin">Sign in</Link>
+          Remember your password?{" "}
+          <Link to="/login?role=user">
+            Sign in
+          </Link>
         </p>
       </form>
     </div>
