@@ -14,7 +14,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 
 // Form (kept in original location)
-import Form from "../pages/Form";
+import Form from "./pages/Form";
 
 export default function App() {
   return (
@@ -83,3 +83,4 @@ export default function App() {
     </Routes>
   );
 }
+
