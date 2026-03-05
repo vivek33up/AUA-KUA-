@@ -1,7 +1,7 @@
 // src/pages/RecoverAdminId.jsx
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { findAdminIdByEmail } from "../services/auth";
+import axios from "axios";
 
 export default function RecoverAdminId() {
   const nav = useNavigate();
@@ -9,16 +9,24 @@ export default function RecoverAdminId() {
   const [adminId, setAdminId] = useState("");
   const [msg, setMsg] = useState("");
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     setMsg("");
     setAdminId("");
-    const id = findAdminIdByEmail(email.trim());
-    if (id) {
-      setAdminId(id);
-      setMsg("");
-    } else {
-      setMsg("No admin account found for this email.");
+
+    if (!email.trim()) {
+      setMsg("Please enter your email.");
+      return;
+    }
+
+    try {
+      const res = await axios.post("http://localhost:3000/test/recover-admin-id", {
+        email: email.trim(),
+      });
+      setAdminId(res.data.adminId);
+    } catch (err) {
+      const errorMsg = err?.response?.data?.error;
+      setMsg(errorMsg || "No admin account found for this email.");
     }
   };
 
@@ -83,7 +91,7 @@ export default function RecoverAdminId() {
       ) : (
         msg && (
           <p style={{ marginTop: 16 }}>
-            Don’t have an admin account?{" "}
+            Don't have an admin account?{" "}
             <Link to="/signup?role=admin">Create Admin Account</Link>
           </p>
         )

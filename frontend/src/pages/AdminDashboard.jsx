@@ -10,11 +10,11 @@ export default function AdminDashboard() {
     <div style={{ padding: 24 }}>
       <h2>Admin Dashboard</h2>
       <p>
-        Signed in as: <b>{session?.id}</b>
+        Signed in as: <b>{session?.userId}</b> (Role: {session?.role})
       </p>
       <ul>
         <li>Review onboarding applications</li>
-        <li>View audits & statuses</li>
+        <li>View audits &amp; statuses</li>
         {/* Add admin tools here */}
       </ul>
       <button

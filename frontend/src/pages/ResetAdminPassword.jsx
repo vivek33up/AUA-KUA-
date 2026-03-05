@@ -1,24 +1,30 @@
 // src/pages/ResetAdminPassword.jsx
 import { useState } from "react";
+import axios from "axios";
 
 export default function ResetAdminPassword() {
   const [adminId, setAdminId] = useState("");
   const [newPass, setNewPass] = useState("");
   const [msg, setMsg] = useState("");
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
+    setMsg("");
+
+    if (!adminId.trim() || !newPass.trim()) {
+      setMsg("Both fields are required.");
+      return;
+    }
+
     try {
-      const admins = JSON.parse(localStorage.getItem("auth:admins") || "[]");
-      const idx = admins.findIndex(
-        (a) => a.adminId.toLowerCase() === adminId.trim().toLowerCase(),
-      );
-      if (idx === -1) return setMsg("Admin ID not found.");
-      admins[idx].password = newPass.trim();
-      localStorage.setItem("auth:admins", JSON.stringify(admins));
-      setMsg("Password updated. You can login now.");
-    } catch {
-      setMsg("Something went wrong.");
+      const res = await axios.post("http://localhost:3000/test/reset-password", {
+        adminId: adminId.trim(),
+        newPassword: newPass.trim(),
+      });
+      setMsg(res.data.message || "Password updated. You can login now.");
+    } catch (err) {
+      const errorMsg = err?.response?.data?.error;
+      setMsg(errorMsg || "Something went wrong.");
     }
   };
 

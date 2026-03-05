@@ -1,7 +1,8 @@
 // src/pages/Login.jsx
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import RoleTabs from "../components/RoleTabs";
+import { setToken } from "../services/auth";
 import axios from "axios";
 import "../styles/auth.css";
 
@@ -57,7 +58,10 @@ export default function Login() {
           role: "user",
         });
 
-        // Save user info in sessionStorage (optional)
+        // Store JWT token
+        setToken(res.data.token);
+
+        // Also keep userId/role in sessionStorage for quick access
         sessionStorage.setItem("userId", res.data.userId);
         sessionStorage.setItem("role", res.data.role);
 
@@ -91,7 +95,10 @@ export default function Login() {
           role: "admin",
         });
 
-        // Save admin info in sessionStorage (optional)
+        // Store JWT token
+        setToken(res.data.token);
+
+        // Also keep userId/role in sessionStorage for quick access
         sessionStorage.setItem("userId", res.data.userId);
         sessionStorage.setItem("role", res.data.role);
 
@@ -170,11 +177,10 @@ export default function Login() {
             </>
           ) : (
             <>
-              Don’t have an account?{" "}
+              Don't have an account?{" "}
               <Link
-                to={`/signup?role=user${
-                  form.email ? `&email=${encodeURIComponent(form.email)}` : ""
-                }`}
+                to={`/signup?role=user${form.email ? `&email=${encodeURIComponent(form.email)}` : ""
+                  }`}
               >
                 Create one
               </Link>

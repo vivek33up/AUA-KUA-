@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import bcrypt from "bcrypt";
 import db from "./db/index.js";
 import { eq, and } from "drizzle-orm";
 import {
@@ -11,10 +12,13 @@ import {
   applications,
   responses
 } from "./db/schema.js";
+import { authenticateToken, requireRole, generateToken } from "./middleware/auth.js";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+const SALT_ROUNDS = 10;
 
 /************ HEALTH CHECK ************/
 app.get("/", (req, res) => res.send("Backend is working!"));
@@ -36,29 +40,33 @@ app.post("/test/add-user", async (req, res) => {
         .json({ error: role === "admin" ? "ADMIN_EMAIL_TAKEN" : "USER_EXISTS" });
     }
 
-    // Insert new user
+    // Hash password with bcrypt
+    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+
+    // Insert new user with hashed password
     const [result] = await db
       .insert(users)
-      .values({ name, email, password, role })
+      .values({ name, email, password: hashedPassword, role })
       .returning();
 
     // For admins, send `adminId` explicitly
     if (role === "admin") {
       return res.json({
         message: "Admin created",
-        adminId: result.userId, 
-        user: result,
+        adminId: result.userId,
+        user: { ...result, password: undefined },
       });
     }
 
     // For users
-    res.json({ message: "User created", user: result });
+    res.json({ message: "User created", user: { ...result, password: undefined } });
 
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
+
 /************ LOGIN ************/
 app.post("/test/login", async (req, res) => {
   try {
@@ -83,11 +91,21 @@ app.post("/test/login", async (req, res) => {
       if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
     }
 
-    if (user.password !== password) {
+    // Compare password using bcrypt
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
       return res.status(401).json({ error: "Incorrect password" });
     }
 
-    res.json({ message: "Login successful", userId: user.userId, role: user.role });
+    // Generate JWT token
+    const token = generateToken({ userId: user.userId, role: user.role });
+
+    res.json({
+      message: "Login successful",
+      userId: user.userId,
+      role: user.role,
+      token,
+    });
 
   } catch (err) {
     console.error(err);
@@ -95,9 +113,63 @@ app.post("/test/login", async (req, res) => {
   }
 });
 
-/************ FORMS & STRUCTURE ************/
+/************ RECOVER ADMIN ID ************/
+app.post("/test/recover-admin-id", async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: "Email is required" });
 
-app.get("/forms", async (req, res) => {
+    const [admin] = await db
+      .select()
+      .from(users)
+      .where(and(eq(users.email, email), eq(users.role, "admin")));
+
+    if (!admin) {
+      return res.status(404).json({ error: "No admin account found for this email." });
+    }
+
+    res.json({ adminId: admin.userId });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/************ RESET PASSWORD ************/
+app.post("/test/reset-password", async (req, res) => {
+  try {
+    const { adminId, newPassword } = req.body;
+    if (!adminId || !newPassword) {
+      return res.status(400).json({ error: "Admin ID and new password are required." });
+    }
+
+    const [admin] = await db
+      .select()
+      .from(users)
+      .where(eq(users.userId, adminId));
+
+    if (!admin) {
+      return res.status(404).json({ error: "Admin ID not found." });
+    }
+
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
+
+    await db
+      .update(users)
+      .set({ password: hashedPassword })
+      .where(eq(users.userId, adminId));
+
+    res.json({ message: "Password updated successfully." });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/************ FORMS & STRUCTURE (Protected — any authenticated user) ************/
+
+app.get("/forms", authenticateToken, async (req, res) => {
   try {
     const result = await db.select().from(forms);
     res.json(result);
@@ -107,7 +179,7 @@ app.get("/forms", async (req, res) => {
   }
 });
 
-app.get("/forms/:formId", async (req, res) => {
+app.get("/forms/:formId", authenticateToken, async (req, res) => {
   try {
     const { formId } = req.params;
     const [form] = await db.select().from(forms).where(eq(forms.formId, formId));
@@ -143,8 +215,8 @@ app.get("/forms/:formId", async (req, res) => {
   }
 });
 
-/************ APPLICATIONS ************/
-app.post("/applications/start", async (req, res) => {
+/************ APPLICATIONS (Protected — user role only) ************/
+app.post("/applications/start", authenticateToken, requireRole("user"), async (req, res) => {
   try {
     const { userId, formId } = req.body;
     const [application] = await db
@@ -160,7 +232,7 @@ app.post("/applications/start", async (req, res) => {
   }
 });
 
-app.post("/applications/:id/answers", async (req, res) => {
+app.post("/applications/:id/answers", authenticateToken, requireRole("user"), async (req, res) => {
   try {
     const { id } = req.params;
     const { answers } = req.body;
@@ -180,7 +252,7 @@ app.post("/applications/:id/answers", async (req, res) => {
   }
 });
 
-app.post("/applications/:id/submit", async (req, res) => {
+app.post("/applications/:id/submit", authenticateToken, requireRole("user"), async (req, res) => {
   try {
     const { id } = req.params;
     const [updated] = await db
@@ -197,7 +269,8 @@ app.post("/applications/:id/submit", async (req, res) => {
   }
 });
 
-app.get("/admin/applications", async (req, res) => {
+/************ ADMIN ROUTES (Protected — admin role only) ************/
+app.get("/admin/applications", authenticateToken, requireRole("admin"), async (req, res) => {
   try {
     const result = await db.select().from(applications);
     res.json(result);
