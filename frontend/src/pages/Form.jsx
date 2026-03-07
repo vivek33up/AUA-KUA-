@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { getToken } from "../services/auth";
+import { getSession, getToken } from "../services/auth";
 
 function normalizeValue(fieldType, currentValue) {
   if (fieldType === "checkbox") {
@@ -12,6 +12,8 @@ function normalizeValue(fieldType, currentValue) {
 export default function Form() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [submitMessage, setSubmitMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [formMeta, setFormMeta] = useState(null);
   const [sections, setSections] = useState([]);
   const [answers, setAnswers] = useState({});
@@ -79,6 +81,11 @@ export default function Form() {
     if (!sections.length) return "";
     return `Section ${stepIndex + 1} of ${sections.length}: ${currentSection?.title ?? ""}`;
   }, [sections.length, stepIndex, currentSection?.title]);
+
+  const allQuestions = useMemo(
+    () => sections.flatMap((section) => section.questions ?? []),
+    [sections],
+  );
 
   const setFieldValue = (question, value) => {
     setAnswers((prev) => ({
@@ -169,6 +176,31 @@ export default function Form() {
       );
     }
 
+    if (question.fieldType === "date") {
+      return (
+        <input
+          id={`q-${question.questionId}`}
+          type="date"
+          className="w-full rounded-md border border-slate-300 px-3 py-2"
+          value={value}
+          required={question.isRequired}
+          onChange={(e) => setFieldValue(question, e.target.value)}
+        />
+      );
+    }
+
+    if (question.fieldType === "file") {
+      return (
+        <input
+          id={`q-${question.questionId}`}
+          type="file"
+          className="w-full rounded-md border border-slate-300 px-3 py-2"
+          required={question.isRequired}
+          onChange={(e) => setFieldValue(question, e.target.files?.[0]?.name ?? "")}
+        />
+      );
+    }
+
     return (
       <input
         id={`q-${question.questionId}`}
@@ -179,6 +211,70 @@ export default function Form() {
         onChange={(e) => setFieldValue(question, e.target.value)}
       />
     );
+  };
+
+  const handleSubmit = async () => {
+    try {
+      setSubmitting(true);
+      setError("");
+      setSubmitMessage("");
+
+      const token = getToken();
+      const session = getSession();
+      const userId = session?.userId || sessionStorage.getItem("userId");
+      const formId = formMeta?.formId;
+
+      if (!token) throw new Error("Missing auth token. Please log in again.");
+      if (!userId) throw new Error("User session not found. Please log in again.");
+      if (!formId) throw new Error("Form not found.");
+
+      const authHeaders = { Authorization: `Bearer ${token}` };
+
+      const startRes = await axios.post(
+        "http://localhost:3000/applications/start",
+        { userId, formId },
+        { headers: authHeaders },
+      );
+
+      const applicationId = startRes.data?.applicationId;
+      if (!applicationId) throw new Error("Failed to start application.");
+
+      const answerRows = allQuestions
+        .map((question) => {
+          const raw = answers[question.questionId];
+          if (raw === undefined || raw === null) return null;
+          if (Array.isArray(raw) && raw.length === 0) return null;
+          if (typeof raw === "string" && raw.trim() === "") return null;
+
+          return {
+            questionId: question.questionId,
+            answer: Array.isArray(raw) ? JSON.stringify(raw) : String(raw),
+          };
+        })
+        .filter(Boolean);
+
+      if (answerRows.length > 0) {
+        await axios.post(
+          `http://localhost:3000/applications/${applicationId}/answers`,
+          { answers: answerRows },
+          { headers: authHeaders },
+        );
+      }
+
+      await axios.post(
+        `http://localhost:3000/applications/${applicationId}/submit`,
+        {},
+        { headers: authHeaders },
+      );
+
+      setSubmitMessage("Application submitted successfully.");
+    } catch (err) {
+      const message =
+        err?.response?.data?.error || err?.message || "Failed to submit application.";
+      setError(message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (loading) {
@@ -227,11 +323,17 @@ export default function Form() {
         </div>
       </section>
 
+      {submitMessage ? (
+        <div className="mx-auto mt-4 w-full max-w-5xl rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-700">
+          {submitMessage}
+        </div>
+      ) : null}
+
       <div className="mx-auto mt-6 flex w-full max-w-5xl items-center justify-between">
         <button
           type="button"
           onClick={() => !isFirst && setStepIndex((prev) => prev - 1)}
-          disabled={isFirst}
+          disabled={isFirst || submitting}
           className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Back
@@ -241,6 +343,7 @@ export default function Form() {
           <button
             type="button"
             onClick={() => setStepIndex((prev) => prev + 1)}
+            disabled={submitting}
             className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
           >
             Next
@@ -248,9 +351,11 @@ export default function Form() {
         ) : (
           <button
             type="button"
+            onClick={handleSubmit}
+            disabled={submitting}
             className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-600"
           >
-            Review & Submit
+            {submitting ? "Submitting..." : "Review & Submit"}
           </button>
         )}
       </div>
