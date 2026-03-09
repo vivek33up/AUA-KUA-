@@ -1,24 +1,15 @@
 // src/components/RoleTabs.jsx
-import "../styles/auth.css";
+import { RoleTab } from "../layouts/LoginLayout";
 
 export default function RoleTabs({ role, onChange }) {
   return (
-    <div className="role-tabs">
-      <button
-        type="button"
-        className={`role-btn ${role === "user" ? "active" : ""}`}
-        onClick={() => onChange("user")}
-      >
+    <div className="flex gap-3 mb-6">
+      <RoleTab active={role === "user"} onClick={() => onChange("user")}>
         User
-      </button>
-
-      <button
-        type="button"
-        className={`role-btn ${role === "admin" ? "active" : ""}`}
-        onClick={() => onChange("admin")}
-      >
+      </RoleTab>
+      <RoleTab active={role === "admin"} onClick={() => onChange("admin")}>
         Admin
-      </button>
+      </RoleTab>
     </div>
   );
 }

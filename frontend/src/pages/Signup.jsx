@@ -3,7 +3,21 @@ import { useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import RoleTabs from "../components/RoleTabs";
 import axios from "axios";
-import "../styles/auth.css";
+
+import {
+  FormLayout,
+  FormCard,
+  Title,
+  Label,
+  Input,
+  PrimaryButton,
+  SecondaryButton,
+  ErrorBox,
+  DialogBackdrop,
+  DialogCard,
+  CodeChip,
+  HelperText,
+} from "../layouts/LoginLayout";
 
 export default function Signup() {
   const nav = useNavigate();
@@ -104,9 +118,7 @@ export default function Signup() {
       if (msg === "USER_EXISTS") {
         setError("An account with this email already exists. Try logging in.");
       } else if (msg === "ADMIN_EMAIL_TAKEN") {
-        setError(
-          "An admin with this email already exists. Try logging in or recovery."
-        );
+        setError("An admin with this email already exists. Try logging in or recovery.");
       } else {
         setError("Something went wrong.");
       }
@@ -114,105 +126,107 @@ export default function Signup() {
   };
 
   return (
-    <div className="auth-wrap">
-      <h1>Create account</h1>
+    <FormLayout>
+      <FormCard>
+        <Title>Create account</Title>
 
-      <RoleTabs
-        role={role}
-        onChange={(r) => {
-          setRole(r);
-          if (error) setError("");
-        }}
-      />
-
-      <form className="auth-form" onSubmit={submit}>
-        <label>Full name</label>
-        <input
-          name="name"
-          type="text"
-          value={form.name}
-          onChange={onChange}
-          placeholder="Your name"
+        <RoleTabs
+          role={role}
+          onChange={(r) => {
+            setRole(r);
+            if (error) setError("");
+          }}
         />
 
-        {/* Email input */}
-        {role === "user" && (
-          <>
-            <label>Email</label>
-            <input
-              name="email"
-              type="email"
-              value={form.email}
-              onChange={onChange}
-              placeholder="you@org.com"
-            />
-          </>
-        )}
+        <form className="grid gap-3" onSubmit={submit}>
+          <Label>Full name</Label>
+          <Input
+            name="name"
+            type="text"
+            value={form.name}
+            onChange={onChange}
+            placeholder="Your name"
+          />
 
-        {role === "admin" && (
-          <>
-            <label>Official Email</label>
-            <input
-              name="email"
-              type="email"
-              value={form.email}
-              onChange={onChange}
-              placeholder="admin@org.com"
-            />
-          </>
-        )}
+          {/* Email input */}
+          {role === "user" && (
+            <>
+              <Label>Email</Label>
+              <Input
+                name="email"
+                type="email"
+                value={form.email}
+                onChange={onChange}
+                placeholder="you@org.com"
+              />
+            </>
+          )}
 
-        <label>Password</label>
-        <input
-          name="password"
-          type="password"
-          value={form.password}
-          onChange={onChange}
-          placeholder="Create a strong password"
-        />
+          {role === "admin" && (
+            <>
+              <Label>Official Email</Label>
+              <Input
+                name="email"
+                type="email"
+                value={form.email}
+                onChange={onChange}
+                placeholder="admin@org.com"
+              />
+              <HelperText>We’ll generate an Admin ID from this email.</HelperText>
+            </>
+          )}
 
-        {error && <div className="auth-error">{error}</div>}
+          <Label>Password</Label>
+          <Input
+            name="password"
+            type="password"
+            value={form.password}
+            onChange={onChange}
+            placeholder="Create a strong password"
+          />
 
-        <button className="primary" type="submit">
-          Sign up
-        </button>
+          {error && <ErrorBox>{error}</ErrorBox>}
 
-        <p className="helper">
-          Already have an account?{" "}
-          <Link
-            to={`/login?role=${role}${
-              role === "user" && form.email
-                ? `&email=${encodeURIComponent(form.email)}`
-                : ""
-            }`}
-          >
-            Sign in
-          </Link>
-        </p>
-      </form>
+          <PrimaryButton type="submit">Sign up</PrimaryButton>
+
+          <p className="text-sm mt-1" style={{ color: "#201f1f" }}>
+            Already have an account?{" "}
+            <Link
+              to={`/login?role=${role}${
+                role === "user" && form.email ? `&email=${encodeURIComponent(form.email)}` : ""
+              }`}
+              className="underline"
+            >
+              Sign in
+            </Link>
+          </p>
+        </form>
+      </FormCard>
 
       {/* Admin ID Reveal Card */}
       {adminReveal.show && (
-        <div className="reveal-backdrop">
-          <div className="reveal-card">
-            <h2>Admin ID generated</h2>
-            <p className="muted">
+        <DialogBackdrop>
+          <DialogCard>
+            <h2 className="text-xl font-semibold mb-2" style={{ color: "#ffe600" }}>
+              Admin ID generated
+            </h2>
+            <p className="text-sm mb-4" style={{ color: "#201f1f"}}>
               Save this ID securely. You’ll use it to sign in.
             </p>
 
-            <div className="code-row">
-              <code className="code-chip">{adminReveal.adminId}</code>
-              <button className="primary" onClick={copyAdminIdAndGotoLogin}>
+            <div className="flex items-center gap-3 mb-4 flex-wrap">
+              <CodeChip>{adminReveal.adminId}</CodeChip>
+              <PrimaryButton onClick={copyAdminIdAndGotoLogin}>
                 Copy &amp; Go to Login
-              </button>
+              </PrimaryButton>
             </div>
 
-            <button className="secondary" onClick={gotoAdminLoginWithoutCopy}>
+            <SecondaryButton onClick={gotoAdminLoginWithoutCopy}>
               Skip &amp; Go to Login
-            </button>
-          </div>
-        </div>
+            </SecondaryButton>
+          </DialogCard>
+        </DialogBackdrop>
       )}
-    </div>
+    </FormLayout>
   );
 }

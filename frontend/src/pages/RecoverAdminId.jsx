@@ -2,6 +2,15 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
+import {
+  FormLayout,
+  FormCard,
+  Title,
+  Label,
+  Input,
+  PrimaryButton,
+  CodeChip
+} from "../layouts/LoginLayout";
 
 export default function RecoverAdminId() {
   const nav = useNavigate();

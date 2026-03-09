@@ -1,11 +1,26 @@
+// src/pages/Form.jsx
+import {
+  FormLayout,
+  WizardShell,
+  Label,
+  FieldInput,
+  FieldTextarea,
+  FieldSelect,
+  FieldRadio,
+  FieldCheckbox,
+  PrimaryButton,
+  SecondaryButton,
+  ErrorBox,
+  SuccessBox,
+  AnimatedCtaButton,
+} from "../layouts/FormLayout"; // If this file is under /pages/application, change to: "../../layouts/FormLayout"
+
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { getSession, getToken } from "../services/auth";
+import { getSession, getToken } from "../services/auth"; // If under /pages/application, change to: "../../services/auth"
 
 function normalizeValue(fieldType, currentValue) {
-  if (fieldType === "checkbox") {
-    return Array.isArray(currentValue) ? currentValue : [];
-  }
+  if (fieldType === "checkbox") return Array.isArray(currentValue) ? currentValue : [];
   return typeof currentValue === "string" ? currentValue : "";
 }
 
@@ -45,17 +60,17 @@ export default function Form() {
 
         const schemaRes = await axios.get(
           `http://localhost:3000/forms/${firstForm.formId}`,
-          { headers: authHeaders },
+          { headers: authHeaders }
         );
 
         const sortedSections = [...(schemaRes.data?.sections ?? [])].sort(
-          (a, b) => Number(a.order ?? 0) - Number(b.order ?? 0),
+          (a, b) => Number(a.order ?? 0) - Number(b.order ?? 0)
         );
 
         const sectionsWithSortedQuestions = sortedSections.map((section) => ({
           ...section,
           questions: [...(section.questions ?? [])].sort(
-            (a, b) => Number(a.order ?? 0) - Number(b.order ?? 0),
+            (a, b) => Number(a.order ?? 0) - Number(b.order ?? 0)
           ),
         }));
 
@@ -79,12 +94,19 @@ export default function Form() {
 
   const progressLabel = useMemo(() => {
     if (!sections.length) return "";
-    return `Section ${stepIndex + 1} of ${sections.length}: ${currentSection?.title ?? ""}`;
+    return `Step ${stepIndex + 1} of ${sections.length} — ${currentSection?.title ?? ""}`;
   }, [sections.length, stepIndex, currentSection?.title]);
+
+  // % complete for the header (0 on first, 100 on last)
+  const percent = useMemo(() => {
+    if (!sections.length) return 0;
+    const denom = Math.max(sections.length - 1, 1);
+    return Math.round((stepIndex / denom) * 100);
+  }, [sections.length, stepIndex]);
 
   const allQuestions = useMemo(
     () => sections.flatMap((section) => section.questions ?? []),
-    [sections],
+    [sections]
   );
 
   const setFieldValue = (question, value) => {
@@ -103,17 +125,18 @@ export default function Form() {
     setFieldValue(question, next);
   };
 
+  // Render a single question using presentational components
   const renderQuestion = (question) => {
     const value = normalizeValue(question.fieldType, answers[question.questionId]);
 
     if (question.fieldType === "textarea") {
       return (
-        <textarea
+        <FieldTextarea
           id={`q-${question.questionId}`}
-          className="w-full rounded-md border border-slate-300 px-3 py-2"
           value={value}
           required={question.isRequired}
           onChange={(e) => setFieldValue(question, e.target.value)}
+          placeholder="Type your response..."
         />
       );
     }
@@ -123,8 +146,7 @@ export default function Form() {
         <div className="space-y-2">
           {(question.options ?? []).map((option) => (
             <label key={option.optionId} className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
+              <FieldRadio
                 name={`q-${question.questionId}`}
                 value={option.optionText}
                 checked={value === option.optionText}
@@ -142,8 +164,7 @@ export default function Form() {
         <div className="space-y-2">
           {(question.options ?? []).map((option) => (
             <label key={option.optionId} className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
+              <FieldCheckbox
                 value={option.optionText}
                 checked={value.includes(option.optionText)}
                 onChange={(e) =>
@@ -159,9 +180,8 @@ export default function Form() {
 
     if (question.fieldType === "dropdown") {
       return (
-        <select
+        <FieldSelect
           id={`q-${question.questionId}`}
-          className="w-full rounded-md border border-slate-300 px-3 py-2"
           value={value}
           required={question.isRequired}
           onChange={(e) => setFieldValue(question, e.target.value)}
@@ -172,16 +192,15 @@ export default function Form() {
               {option.optionText}
             </option>
           ))}
-        </select>
+        </FieldSelect>
       );
     }
 
     if (question.fieldType === "date") {
       return (
-        <input
+        <FieldInput
           id={`q-${question.questionId}`}
           type="date"
-          className="w-full rounded-md border border-slate-300 px-3 py-2"
           value={value}
           required={question.isRequired}
           onChange={(e) => setFieldValue(question, e.target.value)}
@@ -191,24 +210,24 @@ export default function Form() {
 
     if (question.fieldType === "file") {
       return (
-        <input
+        <FieldInput
           id={`q-${question.questionId}`}
           type="file"
-          className="w-full rounded-md border border-slate-300 px-3 py-2"
           required={question.isRequired}
           onChange={(e) => setFieldValue(question, e.target.files?.[0]?.name ?? "")}
         />
       );
     }
 
+    // default text input
     return (
-      <input
+      <FieldInput
         id={`q-${question.questionId}`}
         type="text"
-        className="w-full rounded-md border border-slate-300 px-3 py-2"
         value={value}
         required={question.isRequired}
         onChange={(e) => setFieldValue(question, e.target.value)}
+        placeholder="Enter text"
       />
     );
   };
@@ -233,7 +252,7 @@ export default function Form() {
       const startRes = await axios.post(
         "http://localhost:3000/applications/start",
         { userId, formId },
-        { headers: authHeaders },
+        { headers: authHeaders }
       );
 
       const applicationId = startRes.data?.applicationId;
@@ -257,14 +276,14 @@ export default function Form() {
         await axios.post(
           `http://localhost:3000/applications/${applicationId}/answers`,
           { answers: answerRows },
-          { headers: authHeaders },
+          { headers: authHeaders }
         );
       }
 
       await axios.post(
         `http://localhost:3000/applications/${applicationId}/submit`,
         {},
-        { headers: authHeaders },
+        { headers: authHeaders }
       );
 
       setSubmitMessage("Application submitted successfully.");
@@ -277,88 +296,87 @@ export default function Form() {
     }
   };
 
+  /* ----------------------------- States UI ----------------------------- */
   if (loading) {
     return (
-      <main className="min-h-screen bg-slate-100 px-4 py-8 md:px-8">
-        <div className="mx-auto w-full max-w-5xl rounded-lg bg-white p-6 shadow">
-          Loading form...
-        </div>
-      </main>
+      <FormLayout>
+        <WizardShell title="Loading…" subtitle="" sections={[]} currentIndex={0} percent={0}>
+          <div>Loading form…</div>
+        </WizardShell>
+      </FormLayout>
     );
   }
 
   if (error) {
     return (
-      <main className="min-h-screen bg-slate-100 px-4 py-8 md:px-8">
-        <div className="mx-auto w-full max-w-5xl rounded-lg border border-red-200 bg-red-50 p-6 text-red-700">
-          {error}
-        </div>
-      </main>
+      <FormLayout>
+        <WizardShell title="Error" subtitle="" sections={[]} currentIndex={0} percent={0}>
+          <ErrorBox>{error}</ErrorBox>
+        </WizardShell>
+      </FormLayout>
     );
   }
 
+  /* ------------------------------- Render ------------------------------ */
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-8 md:px-8">
-      <div className="mx-auto mb-4 w-full max-w-5xl">
-        <h1 className="text-xl font-semibold text-slate-900">{formMeta?.title}</h1>
-        {formMeta?.description ? (
-          <p className="mt-1 text-sm text-slate-600">{formMeta.description}</p>
+    <FormLayout>
+      <WizardShell
+        title={formMeta?.title}
+        subtitle={progressLabel}
+        percent={percent}
+        sections={sections.map((s) => s.title || "")}
+        currentIndex={stepIndex}
+      >
+        {/* Section title inside body */}
+        {currentSection?.title ? (
+          <h3 className="text-lg font-semibold mb-5 text-slate-900">{currentSection.title}</h3>
         ) : null}
-        <p className="mt-2 text-sm text-slate-600">{progressLabel}</p>
-      </div>
 
-      <section className="mx-auto w-full max-w-5xl rounded-lg bg-white p-6 shadow">
-        <h2 className="mb-5 text-lg font-semibold text-slate-900">{currentSection?.title}</h2>
-
+        {/* Questions */}
         <div className="space-y-4">
           {(currentSection?.questions ?? []).map((question) => (
             <div key={question.questionId}>
-              <label htmlFor={`q-${question.questionId}`} className="mb-2 block text-sm font-medium text-slate-800">
+              <Label>
                 {question.questionText}
                 {question.isRequired ? <span className="text-red-600"> *</span> : null}
-              </label>
+              </Label>
               {renderQuestion(question)}
             </div>
           ))}
         </div>
-      </section>
 
-      {submitMessage ? (
-        <div className="mx-auto mt-4 w-full max-w-5xl rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-700">
-          {submitMessage}
+        {/* Submit status */}
+        {submitMessage ? (
+          <div className="mt-5">
+            <SuccessBox>{submitMessage}</SuccessBox>
+          </div>
+        ) : null}
+
+        {/* Navigation */}
+        <div className="mt-6 flex items-center justify-between">
+          <SecondaryButton
+            type="button"
+            onClick={() => !isFirst && setStepIndex((prev) => prev - 1)}
+            disabled={isFirst || submitting}
+          >
+            Back
+          </SecondaryButton>
+
+          {!isLast ? (
+            <PrimaryButton
+              type="button"
+              onClick={() => setStepIndex((prev) => prev + 1)}
+              disabled={submitting}
+            >
+              Next
+            </PrimaryButton>
+          ) : (
+            <AnimatedCtaButton type="button" onClick={handleSubmit} disabled={submitting}>
+              {submitting ? "Submitting..." : "Review & Submit"}
+            </AnimatedCtaButton>
+          )}
         </div>
-      ) : null}
-
-      <div className="mx-auto mt-6 flex w-full max-w-5xl items-center justify-between">
-        <button
-          type="button"
-          onClick={() => !isFirst && setStepIndex((prev) => prev - 1)}
-          disabled={isFirst || submitting}
-          className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Back
-        </button>
-
-        {!isLast ? (
-          <button
-            type="button"
-            onClick={() => setStepIndex((prev) => prev + 1)}
-            disabled={submitting}
-            className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
-          >
-            Next
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={submitting}
-            className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-600"
-          >
-            {submitting ? "Submitting..." : "Review & Submit"}
-          </button>
-        )}
-      </div>
-    </main>
+      </WizardShell>
+    </FormLayout>
   );
 }

@@ -2,7 +2,12 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { logout } from "../../services/auth";
-
+import {
+  FormLayout,
+  FormCard,
+  Title,
+  PrimaryButton
+} from "../../layouts/LoginLayout";
 export default function ApplicationIndex() {
   const nav = useNavigate();
 

@@ -1,7 +1,14 @@
 // src/pages/ResetAdminPassword.jsx
 import { useState } from "react";
 import axios from "axios";
-
+import {
+  FormLayout,
+  FormCard,
+  Title,
+  Label,
+  Input,
+  PrimaryButton
+} from "../layouts/LoginLayout";
 export default function ResetAdminPassword() {
   const [adminId, setAdminId] = useState("");
   const [newPass, setNewPass] = useState("");

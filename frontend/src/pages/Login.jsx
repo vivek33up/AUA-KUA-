@@ -4,7 +4,18 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import RoleTabs from "../components/RoleTabs";
 import { setToken } from "../services/auth";
 import axios from "axios";
-import "../styles/auth.css";
+
+import {
+  FormLayout,
+  FormCard,
+  Title,
+  Label,
+  Input,
+  PrimaryButton,
+  ErrorBox,
+  Banner,
+  HelperText,
+} from "../layouts/LoginLayout";
 
 export default function Login() {
   const nav = useNavigate();
@@ -51,17 +62,13 @@ export default function Login() {
       }
 
       try {
-        // Call backend /test/login for user
         const res = await axios.post("http://localhost:3000/test/login", {
           email,
           password,
           role: "user",
         });
 
-        // Store JWT token
         setToken(res.data.token);
-
-        // Also keep userId/role in sessionStorage for quick access
         sessionStorage.setItem("userId", res.data.userId);
         sessionStorage.setItem("role", res.data.role);
 
@@ -88,17 +95,13 @@ export default function Login() {
       }
 
       try {
-        // Call backend /test/login for admin
         const res = await axios.post("http://localhost:3000/test/login", {
           adminId,
           password,
           role: "admin",
         });
 
-        // Store JWT token
         setToken(res.data.token);
-
-        // Also keep userId/role in sessionStorage for quick access
         sessionStorage.setItem("userId", res.data.userId);
         sessionStorage.setItem("role", res.data.role);
 
@@ -106,9 +109,7 @@ export default function Login() {
       } catch (err) {
         const msg = err?.response?.data?.error;
         if (msg === "Admin ID not found") {
-          setError(
-            "Admin ID not found. Check your ID or use 'Find my Admin ID'."
-          );
+          setError("Admin ID not found. Check your ID or use 'Find my Admin ID'.");
         } else if (msg === "Incorrect password") {
           setError("Incorrect password.");
         } else {
@@ -119,75 +120,76 @@ export default function Login() {
   };
 
   return (
-    <div className="auth-wrap">
-      <h1>Sign in</h1>
+    <FormLayout>
+      <FormCard>
+        <Title>Sign in</Title>
 
-      {banner && <div className="auth-banner">{banner}</div>}
+        {banner && <Banner>{banner}</Banner>}
 
-      <RoleTabs role={role} onChange={onRoleChange} />
+        <RoleTabs role={role} onChange={onRoleChange} />
 
-      <form className="auth-form" onSubmit={submit}>
-        {role === "user" ? (
-          <>
-            <label>Email</label>
-            <input
-              name="email"
-              type="email"
-              value={form.email}
-              onChange={onChange}
-              placeholder="you@org.com"
-              autoFocus
-            />
-          </>
-        ) : (
-          <>
-            <label>Admin ID</label>
-            <input
-              name="adminId"
-              type="text"
-              value={form.adminId}
-              onChange={onChange}
-              placeholder="e.g. ADM-20260304-XXXXXX"
-              autoFocus
-            />
-          </>
-        )}
-
-        <label>Password</label>
-        <input
-          name="password"
-          type="password"
-          value={form.password}
-          onChange={onChange}
-          placeholder="••••••••"
-        />
-
-        {error && <div className="auth-error">{error}</div>}
-
-        <button className="primary" type="submit">
-          Login
-        </button>
-
-        <p className="helper">
-          {role === "admin" ? (
+        <form className="grid gap-3" onSubmit={submit}>
+          {role === "user" ? (
             <>
-              <Link to="/recover-admin-id">Find my Admin ID</Link>{" · "}
-              <Link to="/reset-admin-password">Forgot password?</Link>{" · "}
-              <Link to="/signup?role=admin">Create account</Link>
+              <Label>Email</Label>
+              <Input
+                name="email"
+                type="email"
+                value={form.email}
+                onChange={onChange}
+                placeholder="you@org.com"
+                autoFocus
+              />
             </>
           ) : (
             <>
-              Don't have an account?{" "}
-              <Link
-                to={`/signup?role=user${form.email ? `&email=${encodeURIComponent(form.email)}` : ""
-                  }`}
-              >
-                Create one
-              </Link>
+              <Label>Admin ID</Label>
+              <Input
+                name="adminId"
+                type="text"
+                value={form.adminId}
+                onChange={onChange}
+                placeholder="e.g. ADM-20260304-XXXXXX"
+                autoFocus
+              />
+              <HelperText>Use the Admin ID that was generated for you.</HelperText>
             </>
           )}
-        </p>
-      </form>
-    </div>
+
+          <Label>Password</Label>
+          <Input
+            name="password"
+            type="password"
+            value={form.password}
+            onChange={onChange}
+            placeholder="••••••••"
+          />
+
+          {error && <ErrorBox>{error}</ErrorBox>}
+
+          <PrimaryButton type="submit">Login</PrimaryButton>
+
+          <p className="text-sm mt-1" style={{ color: "#201f1f" }}>
+            {role === "admin" ? (
+              <>
+                <Link to="/recover-admin-id" className="underline">Find my Admin ID</Link>{" · "}
+                <Link to="/reset-admin-password" className="underline">Forgot password?</Link>{" · "}
+                <Link to="/signup?role=admin" className="underline">Create account</Link>
+              </>
+            ) : (
+              <>
+                Don&apos;t have an account?{" "}
+                <Link
+                  to={`/signup?role=user${form.email ? `&email=${encodeURIComponent(form.email)}` : ""}`}
+                  className="underline"
+                >
+                  Create one
+                </Link>
+              </>
+            )}
+          </p>
+        </form>
+      </FormCard>
+    </FormLayout>
   );
 }
