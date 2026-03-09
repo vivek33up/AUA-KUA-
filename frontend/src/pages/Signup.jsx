@@ -108,7 +108,6 @@ export default function Signup() {
           replace: true,
         });
       } else {
-        // Admin: show generated admin ID
         const adminId = res.data.adminId;
         setAdminReveal({ show: true, adminId });
       }
