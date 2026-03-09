@@ -1,4 +1,3 @@
-// src/pages/Form.jsx
 import {
   FormLayout,
   WizardShell,
@@ -13,11 +12,12 @@ import {
   ErrorBox,
   SuccessBox,
   AnimatedCtaButton,
-} from "../layouts/FormLayout"; // If this file is under /pages/application, change to: "../../layouts/FormLayout"
+} from "../layouts/FormLayout";
 
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { getSession, getToken } from "../services/auth"; // If under /pages/application, change to: "../../services/auth"
+import { getSession, getToken } from "../services/auth";
+import { validateField, validateAllFields, hasValidationErrors } from "../services/validation";
 
 function normalizeValue(fieldType, currentValue) {
   if (fieldType === "checkbox") return Array.isArray(currentValue) ? currentValue : [];
@@ -32,6 +32,7 @@ export default function Form() {
   const [formMeta, setFormMeta] = useState(null);
   const [sections, setSections] = useState([]);
   const [answers, setAnswers] = useState({});
+  const [fieldErrors, setFieldErrors] = useState({});
   const [stepIndex, setStepIndex] = useState(0);
 
   useEffect(() => {
@@ -97,7 +98,6 @@ export default function Form() {
     return `Step ${stepIndex + 1} of ${sections.length} — ${currentSection?.title ?? ""}`;
   }, [sections.length, stepIndex, currentSection?.title]);
 
-  // % complete for the header (0 on first, 100 on last)
   const percent = useMemo(() => {
     if (!sections.length) return 0;
     const denom = Math.max(sections.length - 1, 1);
@@ -109,10 +109,28 @@ export default function Form() {
     [sections]
   );
 
+  // ✅ UPDATED: Validate on change (live validation)
   const setFieldValue = (question, value) => {
     setAnswers((prev) => ({
       ...prev,
       [question.questionId]: value,
+    }));
+
+    // Validate immediately as user types
+    const error = validateField(question, value);
+    setFieldErrors((prev) => ({
+      ...prev,
+      [question.questionId]: error,
+    }));
+  };
+
+  // ✅ Optional: Validate on blur (when user leaves field)
+  const handleBlur = (question) => {
+    const value = answers[question.questionId];
+    const error = validateField(question, value);
+    setFieldErrors((prev) => ({
+      ...prev,
+      [question.questionId]: error,
     }));
   };
 
@@ -125,24 +143,35 @@ export default function Form() {
     setFieldValue(question, next);
   };
 
-  // Render a single question using presentational components
   const renderQuestion = (question) => {
     const value = normalizeValue(question.fieldType, answers[question.questionId]);
+    const error = fieldErrors[question.questionId];
+
+    const renderWithError = (component) => (
+      <div>
+        {component}
+        {error && (
+          <p className="text-red-600 text-sm mt-1 font-medium">{error}</p>
+        )}
+      </div>
+    );
 
     if (question.fieldType === "textarea") {
-      return (
+      return renderWithError(
         <FieldTextarea
           id={`q-${question.questionId}`}
           value={value}
           required={question.isRequired}
           onChange={(e) => setFieldValue(question, e.target.value)}
+          onBlur={() => handleBlur(question)}
           placeholder="Type your response..."
+          className={error ? "border-2 border-red-500" : ""}
         />
       );
     }
 
     if (question.fieldType === "radio") {
-      return (
+      return renderWithError(
         <div className="space-y-2">
           {(question.options ?? []).map((option) => (
             <label key={option.optionId} className="flex items-center gap-2 text-sm">
@@ -160,7 +189,7 @@ export default function Form() {
     }
 
     if (question.fieldType === "checkbox") {
-      return (
+      return renderWithError(
         <div className="space-y-2">
           {(question.options ?? []).map((option) => (
             <label key={option.optionId} className="flex items-center gap-2 text-sm">
@@ -179,12 +208,14 @@ export default function Form() {
     }
 
     if (question.fieldType === "dropdown") {
-      return (
+      return renderWithError(
         <FieldSelect
           id={`q-${question.questionId}`}
           value={value}
           required={question.isRequired}
           onChange={(e) => setFieldValue(question, e.target.value)}
+          onBlur={() => handleBlur(question)}
+          className={error ? "border-2 border-red-500" : ""}
         >
           <option value="">Select an option</option>
           {(question.options ?? []).map((option) => (
@@ -197,106 +228,154 @@ export default function Form() {
     }
 
     if (question.fieldType === "date") {
-      return (
+      return renderWithError(
         <FieldInput
           id={`q-${question.questionId}`}
           type="date"
           value={value}
           required={question.isRequired}
           onChange={(e) => setFieldValue(question, e.target.value)}
+          onBlur={() => handleBlur(question)}
+          className={error ? "border-2 border-red-500" : ""}
         />
       );
     }
 
     if (question.fieldType === "file") {
-      return (
+      return renderWithError(
         <FieldInput
           id={`q-${question.questionId}`}
           type="file"
           required={question.isRequired}
           onChange={(e) => setFieldValue(question, e.target.files?.[0]?.name ?? "")}
+          onBlur={() => handleBlur(question)}
+          className={error ? "border-2 border-red-500" : ""}
         />
       );
     }
 
-    // default text input
-    return (
+    return renderWithError(
       <FieldInput
         id={`q-${question.questionId}`}
         type="text"
         value={value}
         required={question.isRequired}
         onChange={(e) => setFieldValue(question, e.target.value)}
+        onBlur={() => handleBlur(question)}
         placeholder="Enter text"
+        className={error ? "border-2 border-red-500" : ""}
       />
     );
   };
 
-  const handleSubmit = async () => {
-    try {
-      setSubmitting(true);
-      setError("");
-      setSubmitMessage("");
+  // In handleSubmit, update error handling:
 
-      const token = getToken();
-      const session = getSession();
-      const userId = session?.userId || sessionStorage.getItem("userId");
-      const formId = formMeta?.formId;
+const handleSubmit = async () => {
+  try {
+    setSubmitting(true);
+    setError("");
+    setSubmitMessage("");
 
-      if (!token) throw new Error("Missing auth token. Please log in again.");
-      if (!userId) throw new Error("User session not found. Please log in again.");
-      if (!formId) throw new Error("Form not found.");
+    // Frontend validation
+    const errors = validateAllFields(allQuestions, answers);
+    if (hasValidationErrors(errors)) {
+      setFieldErrors(errors);
+      setError("Please fix validation errors before submitting.");
+      setSubmitting(false);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
 
-      const authHeaders = { Authorization: `Bearer ${token}` };
+    const token = getToken();
+    const session = getSession();
+    const userId = session?.userId || sessionStorage.getItem("userId");
+    const formId = formMeta?.formId;
 
-      const startRes = await axios.post(
-        "http://localhost:3000/applications/start",
-        { userId, formId },
-        { headers: authHeaders }
-      );
+    if (!token) throw new Error("Missing auth token. Please log in again.");
+    if (!userId) throw new Error("User session not found. Please log in again.");
+    if (!formId) throw new Error("Form not found.");
 
-      const applicationId = startRes.data?.applicationId;
-      if (!applicationId) throw new Error("Failed to start application.");
+    const authHeaders = { Authorization: `Bearer ${token}` };
 
-      const answerRows = allQuestions
-        .map((question) => {
-          const raw = answers[question.questionId];
-          if (raw === undefined || raw === null) return null;
-          if (Array.isArray(raw) && raw.length === 0) return null;
-          if (typeof raw === "string" && raw.trim() === "") return null;
+    const startRes = await axios.post(
+      "http://localhost:3000/applications/start",
+      { userId, formId },
+      { headers: authHeaders }
+    );
 
-          return {
-            questionId: question.questionId,
-            answer: Array.isArray(raw) ? JSON.stringify(raw) : String(raw),
-          };
-        })
-        .filter(Boolean);
+    const applicationId = startRes.data?.applicationId;
+    if (!applicationId) throw new Error("Failed to start application.");
 
-      if (answerRows.length > 0) {
+    const answerRows = allQuestions
+      .map((question) => {
+        const raw = answers[question.questionId];
+        if (raw === undefined || raw === null) return null;
+        if (Array.isArray(raw) && raw.length === 0) return null;
+        if (typeof raw === "string" && raw.trim() === "") return null;
+
+        return {
+          questionId: question.questionId,
+          answer: Array.isArray(raw) ? JSON.stringify(raw) : String(raw),
+        };
+      })
+      .filter(Boolean);
+
+    if (answerRows.length > 0) {
+      // ✅ Handle backend validation errors
+      try {
         await axios.post(
           `http://localhost:3000/applications/${applicationId}/answers`,
           { answers: answerRows },
           { headers: authHeaders }
         );
+      } catch (answerErr) {
+        // Backend validation failed
+        if (answerErr.response?.status === 400 && answerErr.response?.data?.details) {
+          const backendErrors = answerErr.response.data.details;
+          const fieldErrorsMap = {};
+          backendErrors.forEach((err) => {
+            fieldErrorsMap[err.questionId] = err.error;
+          });
+          setFieldErrors(fieldErrorsMap);
+        }
+        throw new Error(
+          answerErr.response?.data?.error || "Failed to save answers"
+        );
       }
+    }
 
+    // ✅ Handle backend validation on submit
+    try {
       await axios.post(
         `http://localhost:3000/applications/${applicationId}/submit`,
         {},
         { headers: authHeaders }
       );
-
-      setSubmitMessage("Application submitted successfully.");
-    } catch (err) {
-      const message =
-        err?.response?.data?.error || err?.message || "Failed to submit application.";
-      setError(message);
-    } finally {
-      setSubmitting(false);
+    } catch (submitErr) {
+      if (submitErr.response?.status === 400 && submitErr.response?.data?.details) {
+        const backendErrors = submitErr.response.data.details;
+        const fieldErrorsMap = {};
+        backendErrors.forEach((err) => {
+          fieldErrorsMap[err.questionId] = err.error;
+        });
+        setFieldErrors(fieldErrorsMap);
+      }
+      throw new Error(
+        submitErr.response?.data?.error || "Failed to submit application"
+      );
     }
-  };
 
-  /* ----------------------------- States UI ----------------------------- */
+    setSubmitMessage("Application submitted successfully.");
+  } catch (err) {
+    const message =
+      err?.response?.data?.error || err?.message || "Failed to submit application.";
+    setError(message);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  } finally {
+    setSubmitting(false);
+  }
+};
+
   if (loading) {
     return (
       <FormLayout>
@@ -307,7 +386,7 @@ export default function Form() {
     );
   }
 
-  if (error) {
+  if (error && !submitMessage) {
     return (
       <FormLayout>
         <WizardShell title="Error" subtitle="" sections={[]} currentIndex={0} percent={0}>
@@ -317,7 +396,6 @@ export default function Form() {
     );
   }
 
-  /* ------------------------------- Render ------------------------------ */
   return (
     <FormLayout>
       <WizardShell
@@ -327,12 +405,16 @@ export default function Form() {
         sections={sections.map((s) => s.title || "")}
         currentIndex={stepIndex}
       >
-        {/* Section title inside body */}
+        {error && !submitMessage && (
+          <div className="mb-6">
+            <ErrorBox>{error}</ErrorBox>
+          </div>
+        )}
+
         {currentSection?.title ? (
           <h3 className="text-lg font-semibold mb-5 text-slate-900">{currentSection.title}</h3>
         ) : null}
 
-        {/* Questions */}
         <div className="space-y-4">
           {(currentSection?.questions ?? []).map((question) => (
             <div key={question.questionId}>
@@ -345,14 +427,12 @@ export default function Form() {
           ))}
         </div>
 
-        {/* Submit status */}
         {submitMessage ? (
           <div className="mt-5">
             <SuccessBox>{submitMessage}</SuccessBox>
           </div>
         ) : null}
 
-        {/* Navigation */}
         <div className="mt-6 flex items-center justify-between">
           <SecondaryButton
             type="button"

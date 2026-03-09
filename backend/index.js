@@ -13,6 +13,8 @@ import {
   responses
 } from "./db/schema.js";
 import { authenticateToken, requireRole, generateToken } from "./middleware/auth.js";
+// ✅ Import validation
+import { validateAnswers, sanitizeAnswers } from "./validation.js";
 
 const app = express();
 app.use(cors());
@@ -275,19 +277,58 @@ app.post("/applications/start", authenticateToken, requireRole("user"), async (r
   }
 });
 
+// ✅ UPDATED: Add validation before saving answers
 app.post("/applications/:id/answers", authenticateToken, requireRole("user"), async (req, res) => {
   try {
     const { id } = req.params;
     const { answers } = req.body;
 
-    const rows = answers.map(a => ({
+    // Get the application to find the form
+    const [application] = await db
+      .select()
+      .from(applications)
+      .where(eq(applications.applicationId, id));
+
+    if (!application) {
+      return res.status(404).json({ error: "Application not found" });
+    }
+
+    // Get all questions for validation
+    const sections = await db
+      .select()
+      .from(formSections)
+      .where(eq(formSections.formId, application.formId));
+
+    const allQuestions = [];
+    for (const section of sections) {
+      const questions = await db
+        .select()
+        .from(formQuestions)
+        .where(eq(formQuestions.sectionId, section.sectionId));
+      allQuestions.push(...questions);
+    }
+
+    // ✅ Validate all answers
+    const validationErrors = validateAnswers(allQuestions, answers);
+    if (validationErrors.length > 0) {
+      return res.status(400).json({
+        error: "Validation failed",
+        details: validationErrors,
+      });
+    }
+
+    // ✅ Sanitize answers before saving
+    const sanitizedAnswers = sanitizeAnswers(answers);
+
+    // Save sanitized answers
+    const rows = sanitizedAnswers.map((a) => ({
       applicationId: id,
       questionId: a.questionId,
-      answer: a.answer
+      answer: a.answer,
     }));
 
     await db.insert(responses).values(rows);
-    res.json({ message: "Answers saved" });
+    res.json({ message: "Answers saved successfully" });
 
   } catch (err) {
     console.error(err);
@@ -295,16 +336,62 @@ app.post("/applications/:id/answers", authenticateToken, requireRole("user"), as
   }
 });
 
+// ✅ UPDATED: Validate on submit too
 app.post("/applications/:id/submit", authenticateToken, requireRole("user"), async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Get the application
+    const [application] = await db
+      .select()
+      .from(applications)
+      .where(eq(applications.applicationId, id));
+
+    if (!application) {
+      return res.status(404).json({ error: "Application not found" });
+    }
+
+    // Get all questions
+    const sections = await db
+      .select()
+      .from(formSections)
+      .where(eq(formSections.formId, application.formId));
+
+    const allQuestions = [];
+    for (const section of sections) {
+      const questions = await db
+        .select()
+        .from(formQuestions)
+        .where(eq(formQuestions.sectionId, section.sectionId));
+      allQuestions.push(...questions);
+    }
+
+    // Get all answers for this application
+    const savedAnswers = await db
+      .select()
+      .from(responses)
+      .where(eq(responses.applicationId, id));
+
+    // ✅ Validate all answers before submission
+    const validationErrors = validateAnswers(allQuestions, savedAnswers);
+    if (validationErrors.length > 0) {
+      return res.status(400).json({
+        error: "Cannot submit: Validation errors found",
+        details: validationErrors,
+      });
+    }
+
+    // All valid, update status
     const [updated] = await db
       .update(applications)
       .set({ status: "submitted" })
       .where(eq(applications.applicationId, id))
       .returning();
 
-    res.json({ message: "Application submitted", applicationId: updated.applicationId });
+    res.json({
+      message: "Application submitted successfully",
+      applicationId: updated.applicationId,
+    });
 
   } catch (err) {
     console.error(err);
