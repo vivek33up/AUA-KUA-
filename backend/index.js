@@ -97,6 +97,32 @@ app.post("/test/login", async (req, res) => {
       return res.status(401).json({ error: "Incorrect password" });
     }
 
+    // Ensure a draft application exists for user logins
+    if (user.role === "user") {
+      const [firstForm] = await db.select().from(forms).limit(1);
+      if (firstForm) {
+        const [existingDraft] = await db
+          .select()
+          .from(applications)
+          .where(
+            and(
+              eq(applications.userId, user.userId),
+              eq(applications.formId, firstForm.formId),
+              eq(applications.status, "draft")
+            )
+          )
+          .limit(1);
+
+        if (!existingDraft) {
+          await db.insert(applications).values({
+            userId: user.userId,
+            formId: firstForm.formId,
+            status: "draft",
+          });
+        }
+      }
+    }
+
     // Generate JWT token
     const token = generateToken({ userId: user.userId, role: user.role });
 
@@ -219,6 +245,23 @@ app.get("/forms/:formId", authenticateToken, async (req, res) => {
 app.post("/applications/start", authenticateToken, requireRole("user"), async (req, res) => {
   try {
     const { userId, formId } = req.body;
+
+    const [existingDraft] = await db
+      .select()
+      .from(applications)
+      .where(
+        and(
+          eq(applications.userId, userId),
+          eq(applications.formId, formId),
+          eq(applications.status, "draft")
+        )
+      )
+      .limit(1);
+
+    if (existingDraft) {
+      return res.json(existingDraft);
+    }
+
     const [application] = await db
       .insert(applications)
       .values({ userId, formId, status: "draft" })
