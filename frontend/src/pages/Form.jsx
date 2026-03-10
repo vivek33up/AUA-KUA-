@@ -142,7 +142,24 @@ export default function Form() {
 
     setFieldValue(question, next);
   };
+  ///HANDLER FOR NEXT BUTTON 
+  const handleNext = () => {
 
+  if (!currentSection) return;
+
+  const sectionErrors = validateAllFields(currentSection.questions, answers);
+
+  if (hasValidationErrors(sectionErrors)) {
+
+    setFieldErrors(sectionErrors);
+
+    return;
+
+  }
+
+  setStepIndex((prev) => prev + 1);
+
+};
   const renderQuestion = (question) => {
     const value = normalizeValue(question.fieldType, answers[question.questionId]);
     const error = fieldErrors[question.questionId];
@@ -192,17 +209,52 @@ export default function Form() {
       return renderWithError(
         <div className="space-y-2">
           {(question.options ?? []).map((option) => (
-            <label key={option.optionId} className="flex items-center gap-2 text-sm">
-              <FieldCheckbox
-                value={option.optionText}
-                checked={value.includes(option.optionText)}
-                onChange={(e) =>
-                  toggleCheckboxValue(question, option.optionText, e.target.checked)
-                }
-              />
-              <span>{option.optionText}</span>
-            </label>
-          ))}
+
+  <div key={option.optionId} className="flex flex-col gap-1">
+
+    <label className="flex items-center gap-2 text-sm">
+
+      <FieldCheckbox
+
+        value={option.optionText}
+
+        checked={value.includes(option.optionText)}
+
+        onChange={(e) =>
+
+          toggleCheckboxValue(question, option.optionText, e.target.checked)
+
+        }
+
+      />
+
+      <span>{option.optionText}</span>
+
+    </label>
+
+    {option.optionText === "Other" && value.includes("Other") && (
+
+      <FieldInput
+
+        type="text"
+
+        placeholder="Please specify"
+
+        className="ml-6"
+
+        onChange={(e) =>
+
+          setFieldValue(question, [...value.filter(v => v !== "Other"), `Other:${e.target.value}`])
+
+        }
+
+      />
+
+    )}
+
+  </div>
+
+))}
         </div>
       );
     }
@@ -247,13 +299,94 @@ export default function Form() {
           id={`q-${question.questionId}`}
           type="file"
           required={question.isRequired}
-          onChange={(e) => setFieldValue(question, e.target.files?.[0]?.name ?? "")}
+          onChange={(e) => {
+
+  const file = e.target.files?.[0];
+
+  if (file) setFieldValue(question, file.name);
+
+}}
           onBlur={() => handleBlur(question)}
           className={error ? "border-2 border-red-500" : ""}
         />
       );
     }
+    //.add repeatable------------------------------------------------
+    if (question.repeatable) {
 
+  const values = Array.isArray(answers[question.questionId])
+
+    ? answers[question.questionId]
+
+    : [""];
+
+  const addField = () => {
+
+    if (values.length < (question.maxRepeats || 3)) {
+
+      setAnswers((prev) => ({
+
+        ...prev,
+
+        [question.questionId]: [...values, ""],
+
+      }));
+
+    }
+
+  };
+
+  const updateValue = (index, val) => {
+
+    const next = [...values];
+
+    next[index] = val;
+
+    setAnswers((prev) => ({
+
+      ...prev,
+
+      [question.questionId]: next,
+
+    }));
+
+  };
+
+  return (
+
+    <div className="space-y-2">
+
+      {values.map((v, i) => (
+
+        <FieldInput
+
+          key={i}
+
+          value={v}
+
+          placeholder={`Entry ${i + 1}`}
+
+          onChange={(e) => updateValue(i, e.target.value)}
+
+        />
+
+      ))}
+
+      {values.length < (question.maxRepeats || 3) && (
+
+        <SecondaryButton type="button" onClick={addField}>
+
+          Add another
+
+        </SecondaryButton>
+
+      )}
+
+    </div>
+
+  );
+
+}
     return renderWithError(
       <FieldInput
         id={`q-${question.questionId}`}
@@ -443,9 +576,10 @@ const handleSubmit = async () => {
           </SecondaryButton>
 
           {!isLast ? (
+            
             <PrimaryButton
               type="button"
-              onClick={() => setStepIndex((prev) => prev + 1)}
+              onClick={handleNext}
               disabled={submitting}
             >
               Next

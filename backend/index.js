@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import bcrypt from "bcrypt";
 import db from "./db/index.js";
-import { eq, and } from "drizzle-orm";
+import { eq, and, asc } from "drizzle-orm";
 import {
   users,
   forms,
@@ -208,41 +208,90 @@ app.get("/forms", authenticateToken, async (req, res) => {
 });
 
 app.get("/forms/:formId", authenticateToken, async (req, res) => {
+
   try {
+
     const { formId } = req.params;
-    const [form] = await db.select().from(forms).where(eq(forms.formId, formId));
+
+    const [form] = await db
+
+      .select()
+
+      .from(forms)
+
+      .where(eq(forms.formId, formId));
+
     if (!form) return res.status(404).json({ error: "Form not found" });
 
-    const sections = await db.select().from(formSections).where(eq(formSections.formId, formId));
+    const sections = await db
+
+      .select()
+
+      .from(formSections)
+
+      .where(eq(formSections.formId, formId))
+
+      .orderBy(asc(formSections.order));
 
     const result = [];
+
     for (const section of sections) {
+
       const questions = await db
+
         .select()
+
         .from(formQuestions)
-        .where(eq(formQuestions.sectionId, section.sectionId));
+
+        .where(eq(formQuestions.sectionId, section.sectionId))
+
+        .orderBy(asc(formQuestions.order));
 
       const questionList = [];
-      for (const question of questions) {
-        const options = await db
-          .select()
-          .from(questionOptions)
-          .where(eq(questionOptions.questionId, question.questionId));
 
-        questionList.push({ ...question, options });
+      for (const question of questions) {
+
+        const options = await db
+
+          .select()
+
+          .from(questionOptions)
+
+          .where(eq(questionOptions.questionId, question.questionId))
+
+          .orderBy(asc(questionOptions.order));
+
+        questionList.push({
+
+          ...question,
+
+          options
+
+        });
+
       }
 
-      result.push({ ...section, questions: questionList });
+      result.push({
+
+        ...section,
+
+        questions: questionList
+
+      });
+
     }
 
     res.json({ form, sections: result });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
-  }
-});
 
+    console.error(err);
+
+    res.status(500).json({ error: err.message });
+
+  }
+
+});
 /************ APPLICATIONS (Protected — user role only) ************/
 app.post("/applications/start", authenticateToken, requireRole("user"), async (req, res) => {
   try {
@@ -326,7 +375,7 @@ app.post("/applications/:id/answers", authenticateToken, requireRole("user"), as
       questionId: a.questionId,
       answer: a.answer,
     }));
-
+    await db.delete(responses).where(eq(responses.applicationId,id));//delete duplicate ans
     await db.insert(responses).values(rows);
     res.json({ message: "Answers saved successfully" });
 

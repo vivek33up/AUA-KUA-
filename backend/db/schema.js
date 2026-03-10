@@ -45,7 +45,6 @@ export const formQuestions = pgTable("form_questions", {
   sectionId: integer("sectionId")
     .references(() => formSections.sectionId)
     .notNull(),
-
   questionText: text("questionText").notNull(),
 
   fieldType: varchar("fieldType", { length: 50 }).notNull(),
@@ -64,6 +63,7 @@ export const questionOptions = pgTable("question_options", {
     .notNull(),
 
   optionText: varchar("optionText", { length: 255 }).notNull(),
+  hasInput:boolean("hasInput").default(false),
 
   order: integer("order").notNull(),
 });
