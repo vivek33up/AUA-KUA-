@@ -7,6 +7,8 @@ import AdminDashboard from "./pages/AdminDashboard";
 import RecoverAdminId from "./pages/RecoverAdminId";
 import ResetAdminPassword from "./pages/ResetAdminPassword";
 import Form from "./pages/Form";
+import AdminApplications from "./pages/AdminApplications";
+import AdminViewApplication from "./pages/AdminViewApplication";
 
 export default function App() {
   return (
@@ -19,6 +21,8 @@ export default function App() {
 
       <Route path="/application" element={<ApplicationIndex />} />
       <Route path="/application/form" element={<Form />} />
+      <Route path="/admin/applications" element={<AdminApplications />} />
+      <Route path="/admin/applications/:id" element={<AdminViewApplication />} />
 
       <Route path="/admin" element={<AdminDashboard />} />
       <Route path="*" element={<Navigate to="/login" />} />
