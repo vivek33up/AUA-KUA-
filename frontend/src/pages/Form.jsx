@@ -29,20 +29,21 @@ export default function Form() {
   const [error, setError] = useState("");
   const [submitMessage, setSubmitMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const[submitted,setSubmitted]=useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [formMeta, setFormMeta] = useState(null);
   const [sections, setSections] = useState([]);
   const [answers, setAnswers] = useState({});
   const [fieldErrors, setFieldErrors] = useState({});
   const [stepIndex, setStepIndex] = useState(0);
-  ///AUTOSAVE ASNWERS
+
+  /** ----------------------------- AUTOSAVE ANSWERS ----------------------------- */
   useEffect(() => {
-  if (!formMeta?.formId) return;
+    if (!formMeta?.formId) return;
+    const key = `form-draft-${formMeta.formId}`;
+    localStorage.setItem(key, JSON.stringify(answers));
+  }, [answers, formMeta]);
 
-  const key = `form-draft-${formMeta.formId}`;
-  localStorage.setItem(key, JSON.stringify(answers));
-}, [answers, formMeta]);
-
+  /** ----------------------------- LOAD FORM SCHEMA ---------------------------- */
   useEffect(() => {
     const loadForm = async () => {
       try {
@@ -85,25 +86,17 @@ export default function Form() {
 
         setFormMeta(schemaRes.data?.form ?? firstForm);
         setSections(sectionsWithSortedQuestions);
+
         // Restore saved draft answers
-
-const key = `form-draft-${firstForm.formId}`;
-
-const savedDraft = localStorage.getItem(key);
-
-if (savedDraft) {
-
-  try {
-
-    setAnswers(JSON.parse(savedDraft));
-
-  } catch {
-
-    console.warn("Failed to parse saved draft");
-
-  }
-
-}
+        const key = `form-draft-${firstForm.formId}`;
+        const savedDraft = localStorage.getItem(key);
+        if (savedDraft) {
+          try {
+            setAnswers(JSON.parse(savedDraft));
+          } catch {
+            console.warn("Failed to parse saved draft");
+          }
+        }
       } catch (err) {
         const message =
           err?.response?.data?.error || err?.message || "Failed to load form.";
@@ -116,6 +109,7 @@ if (savedDraft) {
     loadForm();
   }, []);
 
+  /** ------------------------------- DERIVED UI ------------------------------- */
   const currentSection = sections[stepIndex] ?? null;
   const isFirst = stepIndex === 0;
   const isLast = sections.length > 0 && stepIndex === sections.length - 1;
@@ -125,6 +119,7 @@ if (savedDraft) {
     return `Step ${stepIndex + 1} of ${sections.length} — ${currentSection?.title ?? ""}`;
   }, [sections.length, stepIndex, currentSection?.title]);
 
+  // % complete for the header (0 on first, 100 on last)
   const percent = useMemo(() => {
     if (!sections.length) return 0;
     const denom = Math.max(sections.length - 1, 1);
@@ -136,14 +131,14 @@ if (savedDraft) {
     [sections]
   );
 
-  // ✅ UPDATED: Validate on change (live validation)
+  /** ----------------------------- FIELD HANDLERS ----------------------------- */
+  // Live validation on change
   const setFieldValue = (question, value) => {
     setAnswers((prev) => ({
       ...prev,
       [question.questionId]: value,
     }));
 
-    // Validate immediately as user types
     const error = validateField(question, value);
     setFieldErrors((prev) => ({
       ...prev,
@@ -151,7 +146,7 @@ if (savedDraft) {
     }));
   };
 
-  // ✅ Optional: Validate on blur (when user leaves field)
+  // Validate on blur
   const handleBlur = (question) => {
     const value = answers[question.questionId];
     const error = validateField(question, value);
@@ -162,36 +157,25 @@ if (savedDraft) {
   };
 
   const toggleCheckboxValue = (question, optionText, checked) => {
+    const current = normalizeValue(question.fieldType, answers[question.questionId]);
+    const next = checked
+      ? [...new Set([...current, optionText])]
+      : current.filter((item) => item !== optionText);
+    setFieldValue(question, next);
+  };
 
-  const current = normalizeValue(question.fieldType, answers[question.questionId]);
-
-  const next = checked
-
-    ? [...new Set([...current, optionText])]
-
-    : current.filter((item) => item !== optionText);
-
-  setFieldValue(question, next);
-
-};
-  ///HANDLER FOR NEXT BUTTON 
+  /** ------------------------- NAVIGATION: NEXT (validate) -------------------- */
   const handleNext = () => {
+    if (!currentSection) return;
+    const sectionErrors = validateAllFields(currentSection.questions, answers);
+    if (hasValidationErrors(sectionErrors)) {
+      setFieldErrors(sectionErrors);
+      return;
+    }
+    setStepIndex((prev) => prev + 1);
+  };
 
-  if (!currentSection) return;
-
-  const sectionErrors = validateAllFields(currentSection.questions, answers);
-
-  if (hasValidationErrors(sectionErrors)) {
-
-    setFieldErrors(sectionErrors);
-
-    return;
-
-  }
-
-  setStepIndex((prev) => prev + 1);
-
-};
+  /** ------------------------- RENDER A SINGLE QUESTION ----------------------- */
   const renderQuestion = (question) => {
     const value = normalizeValue(question.fieldType, answers[question.questionId]);
     const error = fieldErrors[question.questionId];
@@ -199,9 +183,7 @@ if (savedDraft) {
     const renderWithError = (component) => (
       <div>
         {component}
-        {error && (
-          <p className="text-red-600 text-sm mt-1 font-medium">{error}</p>
-        )}
+        {error && <p className="text-red-600 text-sm mt-1 font-medium">{error}</p>}
       </div>
     );
 
@@ -241,60 +223,35 @@ if (savedDraft) {
       return renderWithError(
         <div className="space-y-2">
           {(question.options ?? []).map((option) => (
+            <div key={option.optionId} className="flex flex-col gap-1">
+              <label className="flex items-center gap-2 text-sm">
+                <FieldCheckbox
+                  value={option.optionText}
+                  checked={value.includes(option.optionText)}
+                  onChange={(e) =>
+                    toggleCheckboxValue(question, option.optionText, e.target.checked)
+                  }
+                />
+                <span>{option.optionText}</span>
+              </label>
 
-  <div key={option.optionId} className="flex flex-col gap-1">
-
-    <label className="flex items-center gap-2 text-sm">
-
-      <FieldCheckbox
-
-        value={option.optionText}
-
-        checked={value.includes(option.optionText)}
-
-        onChange={(e) =>
-
-          toggleCheckboxValue(question, option.optionText, e.target.checked)
-
-        }
-
-      />
-
-      <span>{option.optionText}</span>
-
-    </label>
-
-    {option.optionText === "Other" && value.includes("Other") && (
-
-  <FieldInput
-
-    type="text"
-
-    placeholder="Please specify"
-
-    className="ml-6"
-
-    value={answers[`other-${question.questionId}`] || ""}
-
-    onChange={(e) =>
-
-      setAnswers((prev) => ({
-
-        ...prev,
-
-        [`other-${question.questionId}`]: e.target.value,
-
-      }))
-
-    }
-
-  />
-
-)}
-
-  </div>
-
-))}
+              {/* "Other" free text when selected */}
+              {option.optionText === "Other" && value.includes("Other") && (
+                <FieldInput
+                  type="text"
+                  placeholder="Please specify"
+                  className="ml-6"
+                  value={answers[`other-${question.questionId}`] || ""}
+                  onChange={(e) =>
+                    setAnswers((prev) => ({
+                      ...prev,
+                      [`other-${question.questionId}`]: e.target.value,
+                    }))
+                  }
+                />
+              )}
+            </div>
+          ))}
         </div>
       );
     }
@@ -340,93 +297,59 @@ if (savedDraft) {
           type="file"
           required={question.isRequired}
           onChange={(e) => {
-
-  const file = e.target.files?.[0];
-
-  if (file) setFieldValue(question, file.name);
-
-}}
+            const file = e.target.files?.[0];
+            if (file) setFieldValue(question, file.name);
+          }}
           onBlur={() => handleBlur(question)}
           className={error ? "border-2 border-red-500" : ""}
         />
       );
     }
-    //.add repeatable------------------------------------------------
+
+    // Repeatable text inputs
     if (question.repeatable) {
+      const values = Array.isArray(answers[question.questionId])
+        ? answers[question.questionId]
+        : [""];
 
-  const values = Array.isArray(answers[question.questionId])
+      const addField = () => {
+        if (values.length < (question.maxRepeats || 3)) {
+          setAnswers((prev) => ({
+            ...prev,
+            [question.questionId]: [...values, ""],
+          }));
+        }
+      };
 
-    ? answers[question.questionId]
+      const updateValue = (index, val) => {
+        const next = [...values];
+        next[index] = val;
+        setAnswers((prev) => ({
+          ...prev,
+          [question.questionId]: next,
+        }));
+      };
 
-    : [""];
-
-  const addField = () => {
-
-    if (values.length < (question.maxRepeats || 3)) {
-
-      setAnswers((prev) => ({
-
-        ...prev,
-
-        [question.questionId]: [...values, ""],
-
-      }));
-
+      return (
+        <div className="space-y-2">
+          {values.map((v, i) => (
+            <FieldInput
+              key={i}
+              value={v}
+              placeholder={`Entry ${i + 1}`}
+              onChange={(e) => updateValue(i, e.target.value)}
+            />
+          ))}
+          {values.length < (question.maxRepeats || 3) && (
+            <SecondaryButton type="button" onClick={addField}>
+              Add another
+            </SecondaryButton>
+          )}
+        </div>
+      );
     }
 
-  };
-
-  const updateValue = (index, val) => {
-
-    const next = [...values];
-
-    next[index] = val;
-
-    setAnswers((prev) => ({
-
-      ...prev,
-
-      [question.questionId]: next,
-
-    }));
-
-  };
-
-  return (
-
-    <div className="space-y-2">
-
-      {values.map((v, i) => (
-
-        <FieldInput
-
-          key={i}
-
-          value={v}
-
-          placeholder={`Entry ${i + 1}`}
-
-          onChange={(e) => updateValue(i, e.target.value)}
-
-        />
-
-      ))}
-
-      {values.length < (question.maxRepeats || 3) && (
-
-        <SecondaryButton type="button" onClick={addField}>
-
-          Add another
-
-        </SecondaryButton>
-
-      )}
-
-    </div>
-
-  );
-
-}
+    // default text input
     return renderWithError(
       <FieldInput
         id={`q-${question.questionId}`}
@@ -441,124 +364,131 @@ if (savedDraft) {
     );
   };
 
-  // In handleSubmit, update error handling:
+  /** ------------------------------- SUBMIT ----------------------------------- */
+  const handleSubmit = async () => {
+    try {
+      setSubmitting(true);
+      setError("");
+      setSubmitMessage("");
 
-const handleSubmit = async () => {
-  try {
-    setSubmitting(true);
-    setError("");
-    setSubmitMessage("");
+      // Frontend validation
+      const errors = validateAllFields(allQuestions, answers);
+      if (hasValidationErrors(errors)) {
+        setFieldErrors(errors);
+        setError("Please fix validation errors before submitting.");
+        setSubmitting(false);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
 
-    // Frontend validation
-    const errors = validateAllFields(allQuestions, answers);
-    if (hasValidationErrors(errors)) {
-      setFieldErrors(errors);
-      setError("Please fix validation errors before submitting.");
-      setSubmitting(false);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      return;
-    }
+      const token = getToken();
+      const session = getSession();
+      const userId = session?.userId || sessionStorage.getItem("userId");
+      const formId = formMeta?.formId;
 
-    const token = getToken();
-    const session = getSession();
-    const userId = session?.userId || sessionStorage.getItem("userId");
-    const formId = formMeta?.formId;
+      if (!token) throw new Error("Missing auth token. Please log in again.");
+      if (!userId) throw new Error("User session not found. Please log in again.");
+      if (!formId) throw new Error("Form not found.");
 
-    if (!token) throw new Error("Missing auth token. Please log in again.");
-    if (!userId) throw new Error("User session not found. Please log in again.");
-    if (!formId) throw new Error("Form not found.");
+      const authHeaders = { Authorization: `Bearer ${token}` };
 
-    const authHeaders = { Authorization: `Bearer ${token}` };
+      const startRes = await axios.post(
+        "http://localhost:3000/applications/start",
+        { userId, formId },
+        { headers: authHeaders }
+      );
 
-    const startRes = await axios.post(
-      "http://localhost:3000/applications/start",
-      { userId, formId },
-      { headers: authHeaders }
-    );
+      const applicationId = startRes.data?.applicationId;
+      if (!applicationId) throw new Error("Failed to start application.");
 
-    const applicationId = startRes.data?.applicationId;
-    if (!applicationId) throw new Error("Failed to start application.");
+      const answerRows = allQuestions
+        .map((question) => {
+          let raw = answers[question.questionId];
 
-    const answerRows = allQuestions
-      .map((question) => {
-        let raw=answers[question.questionId]
-        if(Array.isArray(raw)&& raw.includes("Other")){
-          const otherText=answers[`other-${question.questionId}`];
-          if(otherText){
-            raw=[...raw.filter(v=>v!=="Other"), `Other: ${otherText}`];
+          // Expand "Other" selection with typed text, if provided
+          if (Array.isArray(raw) && raw.includes("Other")) {
+            const otherText = answers[`other-${question.questionId}`];
+            if (otherText) {
+              raw = [...raw.filter((v) => v !== "Other"), `Other: ${otherText}`];
+            }
           }
+
+          if (raw === undefined || raw === null) return null;
+          if (Array.isArray(raw) && raw.length === 0) return null;
+          if (typeof raw === "string" && raw.trim() === "") return null;
+
+          return {
+            questionId: question.questionId,
+            answer: Array.isArray(raw) ? JSON.stringify(raw) : String(raw),
+          };
+        })
+        .filter(Boolean);
+
+      if (answerRows.length > 0) {
+        // Save answers; catch backend validation errors
+        try {
+          await axios.post(
+            `http://localhost:3000/applications/${applicationId}/answers`,
+            { answers: answerRows },
+            { headers: authHeaders }
+          );
+        } catch (answerErr) {
+          if (answerErr.response?.status === 400 && answerErr.response?.data?.details) {
+            const backendErrors = answerErr.response.data.details;
+            const fieldErrorsMap = {};
+            backendErrors.forEach((err) => {
+              fieldErrorsMap[err.questionId] = err.error;
+            });
+            setFieldErrors(fieldErrorsMap);
+          }
+          throw new Error(answerErr.response?.data?.error || "Failed to save answers");
         }
-        if (raw === undefined || raw === null) return null;
-        if (Array.isArray(raw) && raw.length === 0) return null;
-        if (typeof raw === "string" && raw.trim() === "") return null;
+      }
 
-        return {
-          questionId: question.questionId,
-          answer: Array.isArray(raw) ? JSON.stringify(raw) : String(raw),
-        };
-      })
-      .filter(Boolean);
-
-    if (answerRows.length > 0) {
-      // ✅ Handle backend validation errors
+      // Submit application; catch backend validation errors
       try {
         await axios.post(
-          `http://localhost:3000/applications/${applicationId}/answers`,
-          { answers: answerRows },
+          `http://localhost:3000/applications/${applicationId}/submit`,
+          {},
           { headers: authHeaders }
         );
-      } catch (answerErr) {
-        // Backend validation failed
-        if (answerErr.response?.status === 400 && answerErr.response?.data?.details) {
-          const backendErrors = answerErr.response.data.details;
+      } catch (submitErr) {
+        if (submitErr.response?.status === 400 && submitErr.response?.data?.details) {
+          const backendErrors = submitErr.response.data.details;
           const fieldErrorsMap = {};
           backendErrors.forEach((err) => {
             fieldErrorsMap[err.questionId] = err.error;
           });
           setFieldErrors(fieldErrorsMap);
         }
-        throw new Error(
-          answerErr.response?.data?.error || "Failed to save answers"
-        );
+        throw new Error(submitErr.response?.data?.error || "Failed to submit application");
       }
+
+      setSubmitMessage("Application submitted successfully.");
+      setSubmitted(true);
+
+      // Clear draft after submit
+      const key = `form-draft-${formMeta.formId}`;
+      localStorage.removeItem(key);
+    } catch (err) {
+      const message =
+        err?.response?.data?.error || err?.message || "Failed to submit application.";
+      setError(message);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } finally {
+      setSubmitting(false);
     }
+  };
 
-    // ✅ Handle backend validation on submit
-    try {
-      await axios.post(
-        `http://localhost:3000/applications/${applicationId}/submit`,
-        {},
-        { headers: authHeaders }
-      );
-    } catch (submitErr) {
-      if (submitErr.response?.status === 400 && submitErr.response?.data?.details) {
-        const backendErrors = submitErr.response.data.details;
-        const fieldErrorsMap = {};
-        backendErrors.forEach((err) => {
-          fieldErrorsMap[err.questionId] = err.error;
-        });
-        setFieldErrors(fieldErrorsMap);
-      }
-      throw new Error(
-        submitErr.response?.data?.error || "Failed to submit application"
-      );
+  /** ----------------------- BUBBLE CLICK: BACK ONLY -------------------------- */
+  const handleStepBubbleClick = (index) => {
+    // Allow going back or staying on the same step; block forward jumps
+    if (index <= stepIndex) {
+      setStepIndex(index);
     }
+  };
 
-    setSubmitMessage("Application submitted successfully.");
-    setSubmitted(true);
-    //clear draft after submit
-    const key = `form-draft-${formMeta.formId}`;
-    localStorage.removeItem(key);   
-  } catch (err) {
-    const message =
-      err?.response?.data?.error || err?.message || "Failed to submit application.";
-    setError(message);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  } finally {
-    setSubmitting(false);
-  }
-};
-
+  /** --------------------------------- RENDER --------------------------------- */
   if (loading) {
     return (
       <FormLayout>
@@ -587,6 +517,7 @@ const handleSubmit = async () => {
         percent={percent}
         sections={sections.map((s) => s.title || "")}
         currentIndex={stepIndex}
+        onStepClick={handleStepBubbleClick}  // <-- pass guarded handler
       >
         {error && !submitMessage && (
           <div className="mb-6">
@@ -626,17 +557,12 @@ const handleSubmit = async () => {
           </SecondaryButton>
 
           {!isLast ? (
-            
-            <PrimaryButton
-              type="button"
-              onClick={handleNext}
-              disabled={submitting}
-            >
+            <PrimaryButton type="button" onClick={handleNext} disabled={submitting}>
               Next
             </PrimaryButton>
           ) : (
-            <AnimatedCtaButton type="button" onClick={handleSubmit} disabled={submitting||submitted}>
-              {submitted ? "Submitted" :submitting? "Submitting...":"Review & Submit"}
+            <AnimatedCtaButton type="button" onClick={handleSubmit} disabled={submitting || submitted}>
+              {submitted ? "Submitted" : submitting ? "Submitting..." : "Review & Submit"}
             </AnimatedCtaButton>
           )}
         </div>

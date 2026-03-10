@@ -13,13 +13,13 @@ const formStructure = [
 
   { text: "Name of the applicant", type: "text", required: true },
 
-  { text: "Registration / Incorporation No", type: "text" },
+  { text: "Registration / Incorporation No", type: "text" , required: true },
 
-  { text: "License No", type: "text" },
+  { text: "License No", type: "text" , required:true },
 
-  { text: "Registered office address", type: "textarea" },
+  { text: "Registered office address", type: "textarea"  , required:true },
 
-  { text: "Correspondence address", type: "textarea" },
+  { text: "Correspondence address", type: "textarea"  , required:true  },
 
   { text: "GSTN registration number", type: "text" },
 
@@ -29,7 +29,7 @@ const formStructure = [
 
    text: "Type of Aadhaar Authentication facility",
 
-   type: "checkbox",
+   type: "checkbox",   required:true  ,
 
    options: [
 
@@ -45,7 +45,7 @@ const formStructure = [
 
    text: "Provision of Aadhaar Act under which authentication is required",
 
-   type: "checkbox",
+   type: "checkbox" ,   required:true ,
 
    options: [
 
@@ -67,7 +67,7 @@ const formStructure = [
 
    text: "Category of the applicant Ministry/Department/entity",
 
-   type: "checkbox",
+   type: "checkbox",   required:true ,
 
    options: [
 
@@ -89,7 +89,7 @@ const formStructure = [
 
    text: "Board resolution / authorisation letter for submitting application",
 
-   type: "file"
+   type: "file" , required:true 
 
   }
 
@@ -105,23 +105,23 @@ const formStructure = [
 
  questions: [
 
-  { text: "MPOC Name", type: "text" },
+  { text: "MPOC Name", type: "text" , required:true },
 
   { text: "MPOC Full designation", type: "text" },
 
-  { text: "MPOC Official email address", type: "text" },
+  { text: "MPOC Official email address", type: "text" , required:true },
 
-  { text: "MPOC Mobile number", type: "text" },
+  { text: "MPOC Mobile number", type: "text", required:true },
 
   { text: "MPOC Alternate telephone number", type: "text" },
 
-  { text: "TPOC Name", type: "text" },
+  { text: "TPOC Name", type: "text" , required:true},
 
   { text: "TPOC designation", type: "text" },
 
-  { text: "TPOC email", type: "text" },
+  { text: "TPOC email", type: "text"  , required:true},
 
-  { text: "TPOC mobile number", type: "text" },
+  { text: "TPOC mobile number", type: "text" , required:true},
 
   /******** DC ********/
 
@@ -175,9 +175,9 @@ const formStructure = [
 
  questions: [
 
-  { text: "Name(s) of ASA", type: "text",repeatable:true,maxRepeats:3 },
+  { text: "Name(s) of ASA", type: "text",required:true , repeatable:true,maxRepeats:3 },
 
-  { text: "Declaration by ASA agreeing to provide connectivity", type: "file" }
+  { text: "Declaration by ASA agreeing to provide connectivity", type: "file" , required:true }
 
  ]
 
@@ -195,7 +195,7 @@ const formStructure = [
 
    text: "Territorial extent for use of Authentication facility",
 
-   type: "radio",
+   type: "radio", required:true,
 
    options: [
 
@@ -211,7 +211,7 @@ const formStructure = [
 
    text: "Authentication used for financial transaction",
 
-   type: "radio",
+   type: "radio", required:true,
 
    options: ["Yes", "No"]
 
@@ -221,7 +221,7 @@ const formStructure = [
 
    text: "Device form factor",
 
-   type: "checkbox",
+   type: "checkbox", required:true,
 
    options: [
 
@@ -241,7 +241,7 @@ const formStructure = [
 
    text: "Operator assisted or self use",
 
-   type: "checkbox",
+   type: "checkbox", required:true,
 
    options: [
 
@@ -257,7 +257,7 @@ const formStructure = [
 
    text: "Mode of authentication",
 
-   type: "checkbox",
+   type: "checkbox", required:true,
 
    options: [
 
@@ -279,7 +279,7 @@ const formStructure = [
 
    text: "Connectivity supported between AUA/KUA and ASA",
 
-   type: "checkbox",
+   type: "checkbox", required : true,
 
    options: [
 
@@ -297,7 +297,7 @@ const formStructure = [
 
    text: "Applicant has read UIDAI Information Security Policy",
 
-   type: "radio",
+   type: "radio", required:true,
 
    options: ["Yes", "No"]
 
@@ -307,7 +307,7 @@ const formStructure = [
 
    text: "Applicant has read UIDAI Model Privacy Policy",
 
-   type: "radio",
+   type: "radio", required:true,
 
    options: ["Yes", "No"]
 
@@ -325,15 +325,15 @@ const formStructure = [
 
  questions: [
 
-  { text: "Name of applicant Ministry/Department/entity", type: "text" },
+  { text: "Name of applicant Ministry/Department/entity", type: "text" , required:true},
 
-  { text: "Date", type: "date" },
+  { text: "Date", type: "date" , required:true },
 
-  { text: "Place", type: "text" },
+  { text: "Place", type: "text" , required:true },
 
-  { text: "Name of authorised signatory", type: "text" },
+  { text: "Name of authorised signatory", type: "text" , required:true },
 
-  { text: "Full designation", type: "text" }
+  { text: "Full designation", type: "text" , required:true}
 
  ]
 
@@ -342,6 +342,10 @@ const formStructure = [
 ];
 
 async function seed() {
+
+  await db.execute(`
+    TRUNCATE TABLE "question_options", "form_questions", "form_sections", "forms" RESTART IDENTITY CASCADE;
+  `);
 
   console.log("Starting seed...");
 

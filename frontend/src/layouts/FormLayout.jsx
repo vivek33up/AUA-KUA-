@@ -250,19 +250,35 @@ export function SuccessBox({ children }) {
 }
 
 /* --------------------------- Wizard Stepper ---------------------------- */
-export function BubbleStepper({ sections = [], currentIndex = 0 }) {
+export function BubbleStepper({ sections = [], currentIndex = 0, onStepClick }) {
   const steps = sections.map((s) => (typeof s === "string" ? { title: s } : s));
+  const canClick = typeof onStepClick === "function";
+
   return (
     <div className="w-full">
       <div className="flex items-center gap-2">
         {steps.map((s, i) => {
           const done = i < currentIndex;
           const active = i === currentIndex;
+          const allowed = i <= currentIndex; // only allow back/current
+          const disabled = !canClick || !allowed;
+
           return (
             <React.Fragment key={i}>
               <div className="flex items-center gap-2">
-                <div
-                  className="h-8 w-8 rounded-full grid place-items-center text-sm font-semibold"
+                {/* Bubble as a button */}
+                <button
+                  type="button"
+                  onClick={() => { if (!disabled) onStepClick(i); }}
+                  disabled={disabled}
+                  aria-current={active ? "step" : undefined}
+                  aria-label={`Step ${i + 1}${s.title ? `: ${s.title}` : ""}`}
+                  className={[
+                    "h-8 w-8 rounded-full grid place-items-center text-sm font-semibold",
+                    "transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                    "focus-visible:ring-amber-400/60",
+                    disabled ? "cursor-not-allowed opacity-70" : "cursor-pointer",
+                  ].join(" ")}
                   style={{
                     backgroundColor: active || done ? theme.accent : "rgba(255,255,255,0.12)",
                     color: active || done ? theme.bg : theme.light,
@@ -270,11 +286,18 @@ export function BubbleStepper({ sections = [], currentIndex = 0 }) {
                   }}
                 >
                   {i + 1}
-                </div>
-                <div className="hidden sm:block text-xs" style={{ color: active ? theme.accent : theme.light }}>
+                </button>
+
+                {/* Label (non-interactive) */}
+                <div
+                  className="hidden sm:block text-xs"
+                  style={{ color: active ? theme.accent : theme.light }}
+                >
                   {s.title}
                 </div>
               </div>
+
+              {/* Connector line */}
               {i < steps.length - 1 && (
                 <div className="flex-1 h-[2px] relative">
                   <div className="absolute inset-0 rounded" style={{ backgroundColor: "rgba(255,255,255,0.2)" }} />
@@ -297,7 +320,7 @@ export function BubbleStepper({ sections = [], currentIndex = 0 }) {
 }
 
 /* --------------------------- Wizard Shell ----------------------------- */
-export function WizardShellHeader({ title, subtitle, percent, sections, currentIndex }) {
+export function WizardShellHeader({ title, subtitle, percent, sections, currentIndex, onStepClick }) {
   return (
     <div className="px-5 sm:px-8 py-5"
          style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.65), rgba(0,0,0,0.45))" }}>
@@ -320,14 +343,14 @@ export function WizardShellHeader({ title, subtitle, percent, sections, currentI
       </div>
 
       <div className="mt-4">
-        <BubbleStepper sections={sections} currentIndex={currentIndex} />
+        <BubbleStepper sections={sections} currentIndex={currentIndex} onStepClick={onStepClick} />
       </div>
     </div>
   );
 }
 
 /** Wraps header + white body card */
-export function WizardShell({ title, subtitle, percent, sections, currentIndex, children }) {
+export function WizardShell({ title, subtitle, percent, sections, currentIndex, onStepClick, children }) {
   return (
     <FormCard className="p-0">
       <WizardShellHeader
@@ -336,6 +359,7 @@ export function WizardShell({ title, subtitle, percent, sections, currentIndex, 
         percent={percent}
         sections={sections}
         currentIndex={currentIndex}
+        onStepClick={onStepClick}
       />
       {/* White region is black text by default */}
       <div className="bg-white text-black p-5 sm:p-8">{children}</div>
