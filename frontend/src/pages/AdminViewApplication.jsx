@@ -49,17 +49,24 @@ export default function AdminViewApplication() {
             <p><b>Application ID:</b> {app.applicationId}</p>
             <p><b>Status:</b> {app.status}</p>
             <p><b>Created At:</b> {new Date(app.createdAt).toLocaleString()}</p>
-            <h4 style={{ marginTop: 16 }}>Answers:</h4>
-            {app.answers && app.answers.length > 0 ? (
-              <ul>
-                {app.answers.map((ans, i) => (
-                  <li key={i}>
-                    <b>Q{ans.questionId}:</b> {ans.answer}
-                  </li>
-                ))}
-              </ul>
+            {/* Section-wise questions and answers */}
+            {app.sections && app.sections.length > 0 ? (
+              app.sections.map((section, idx) => (
+                <div key={idx} style={{ marginTop: 24 }}>
+                  <h4 style={{ color: '#fff', marginBottom: 8 }}>{section.sectionTitle}</h4>
+                  {section.questions.map((q) => {
+                    const ans = app.answers.find(a => a.questionId === q.questionId);
+                    return (
+                      <div key={q.questionId} style={{ marginBottom: 12 }}>
+                        <div style={{ fontWeight: 500 }}>{q.questionText}</div>
+                        <div style={{ color: '#ffe066', marginLeft: 8 }}>{ans ? ans.answer : <i>No response</i>}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))
             ) : (
-              <p>No answers submitted.</p>
+              <p>No form structure found.</p>
             )}
           </div>
         )}

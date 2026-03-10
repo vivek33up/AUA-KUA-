@@ -38,6 +38,7 @@ export default function AdminApplications() {
     <FormLayout>
       <FormCard>
         <Title>Applications List</Title>
+        {/* Remove 'Sign in to continue' */}
         {loading ? (
           <p>Loading…</p>
         ) : applications.length === 0 ? (
