@@ -14,7 +14,6 @@ import {
   PrimaryButton,
   ErrorBox,
   Banner,
-  HelperText,
 } from "../layouts/LoginLayout";
 
 export default function Login() {
@@ -24,15 +23,14 @@ export default function Login() {
 
   const [role, setRole] = useState(qs.get("role") === "admin" ? "admin" : "user");
 
+  // We now use 'email' for both Admin and User
   const [form, setForm] = useState({
     email: qs.get("email") || "",
     password: "",
-    adminId: qs.get("adminId") || "",
   });
 
   const [error, setError] = useState("");
 
-  // Show signup banner if exists
   const [banner] = useState(() => {
     const msg = sessionStorage.getItem("signupBanner");
     if (msg) sessionStorage.removeItem("signupBanner");
@@ -53,68 +51,40 @@ export default function Login() {
     e.preventDefault();
     setError("");
 
-    if (role === "user") {
-      const email = form.email.trim();
-      const password = form.password.trim();
-      if (!email || !password) {
-        setError("Enter email and password.");
-        return;
-      }
+    const email = form.email.trim();
+    const password = form.password.trim();
 
-      try {
-        const res = await axios.post("http://localhost:3000/test/login", {
-          email,
-          password,
-          role: "user",
-        });
+    if (!email || !password) {
+      setError("Please enter both email and password.");
+      return;
+    }
 
-        setToken(res.data.token);
-        sessionStorage.setItem("userId", res.data.userId);
-        sessionStorage.setItem("role", res.data.role);
+    try {
+      const res = await axios.post("http://localhost:3000/test/login", {
+        email,
+        password,
+        role, // Dynamically sends 'admin' or 'user'
+      });
 
-        nav("/application", { replace: true });
-      } catch (err) {
-        const msg = err?.response?.data?.error;
-        if (msg === "USER_NOT_FOUND") {
-          nav(`/signup?role=user&email=${encodeURIComponent(email)}`, {
-            replace: true,
-          });
-        } else if (msg === "Incorrect password") {
-          setError("Incorrect password.");
-        } else {
-          setError(msg || "Something went wrong.");
-        }
-      }
-    } else {
-      // ADMIN
-      const adminId = form.adminId.trim();
-      const password = form.password.trim();
-      if (!adminId || !password) {
-        setError("Enter admin ID and password.");
-        return;
-      }
+      setToken(res.data.token);
+      sessionStorage.setItem("userId", res.data.userId);
+      sessionStorage.setItem("role", res.data.role);
 
-      try {
-        const res = await axios.post("http://localhost:3000/test/login", {
-          adminId,
-          password,
-          role: "admin",
-        });
-
-        setToken(res.data.token);
-        sessionStorage.setItem("userId", res.data.userId);
-        sessionStorage.setItem("role", res.data.role);
-
+      // Redirect based on role
+      if (res.data.role === "admin") {
         nav("/admin", { replace: true });
-      } catch (err) {
-        const msg = err?.response?.data?.error;
-        if (msg === "Admin ID not found") {
-          setError("Admin ID not found. Check your ID or use 'Find my Admin ID'.");
-        } else if (msg === "Incorrect password") {
-          setError("Incorrect password.");
-        } else {
-          setError(msg || "Something went wrong.");
-        }
+      } else {
+        nav("/application", { replace: true });
+      }
+    } catch (err) {
+      const msg = err?.response?.data?.error;
+      
+      if (msg === "USER_NOT_FOUND" || msg === "Admin account not found") {
+        setError(`${role === 'admin' ? 'Admin' : 'User'} account not found.`);
+      } else if (msg === "Incorrect password") {
+        setError("Incorrect password. Please try again.");
+      } else {
+        setError(msg || "Something went wrong.");
       }
     }
   };
@@ -129,32 +99,16 @@ export default function Login() {
         <RoleTabs role={role} onChange={onRoleChange} />
 
         <form className="grid gap-3" onSubmit={submit}>
-          {role === "user" ? (
-            <>
-              <Label>Email</Label>
-              <Input
-                name="email"
-                type="email"
-                value={form.email}
-                onChange={onChange}
-                placeholder="you@org.com"
-                autoFocus
-              />
-            </>
-          ) : (
-            <>
-              <Label>Admin ID</Label>
-              <Input
-                name="adminId"
-                type="text"
-                value={form.adminId}
-                onChange={onChange}
-                placeholder="e.g. ADM-20260304-XXXXXX"
-                autoFocus
-              />
-              <HelperText>Use the Admin ID that was generated for you.</HelperText>
-            </>
-          )}
+          <Label>{role === "admin" ? "Admin Email" : "Email"}</Label>
+          <Input
+            name="email"
+            type="email"
+            value={form.email}
+            onChange={onChange}
+            placeholder={role === "admin" ? "admin@org.com" : "you@org.com"}
+            autoFocus
+            required
+          />
 
           <Label>Password</Label>
           <Input
@@ -163,21 +117,22 @@ export default function Login() {
             value={form.password}
             onChange={onChange}
             placeholder="••••••••"
+            required
           />
 
           {error && <ErrorBox>{error}</ErrorBox>}
 
           <PrimaryButton type="submit">Login</PrimaryButton>
 
-          <p className="text-sm mt-1" style={{ color: "#201f1f" }}>
+          <div className="text-sm mt-1" style={{ color: "#201f1f" }}>
             {role === "admin" ? (
-              <>
-                <Link to="/recover-admin-id" className="underline">Find my Admin ID</Link>{" · "}
-                <Link to="/reset-admin-password" className="underline">Forgot password?</Link>{" · "}
-                <Link to="/signup?role=admin" className="underline">Create account</Link>
-              </>
+              <div className="flex flex-wrap gap-2">
+                <Link to="/forgot-password?role=admin" className="underline">Forgot password?</Link>
+                <span>·</span>
+                <Link to="/signup?role=admin" className="underline">Create admin account</Link>
+              </div>
             ) : (
-              <>
+              <p>
                 Don&apos;t have an account?{" "}
                 <Link
                   to={`/signup?role=user${form.email ? `&email=${encodeURIComponent(form.email)}` : ""}`}
@@ -185,9 +140,9 @@ export default function Login() {
                 >
                   Create one
                 </Link>
-              </>
+              </p>
             )}
-          </p>
+          </div>
         </form>
       </FormCard>
     </FormLayout>

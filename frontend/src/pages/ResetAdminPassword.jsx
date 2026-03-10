@@ -1,5 +1,5 @@
-// src/pages/ResetAdminPassword.jsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import {
   FormLayout,
@@ -7,56 +7,101 @@ import {
   Title,
   Label,
   Input,
-  PrimaryButton
+  PrimaryButton,
+  ErrorBox,
 } from "../layouts/LoginLayout";
+
 export default function ResetAdminPassword() {
-  const [adminId, setAdminId] = useState("");
-  const [newPass, setNewPass] = useState("");
-  const [msg, setMsg] = useState("");
+  const [searchParams] = useSearchParams();
+  const nav = useNavigate();
+  
+  // Extract token and role directly from URL
+  const urlToken = searchParams.get("token") || "";
+  const urlRole = searchParams.get("role") || "admin";
 
-  const submit = async (e) => {
+  const [token, setToken] = useState(urlToken);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [role] = useState(urlRole);
+  
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  // Auto-fill token if it arrives in the URL later
+  useEffect(() => {
+    if (urlToken) {
+      setToken(urlToken);
+    }
+  }, [urlToken]);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setMsg("");
+    setError("");
 
-    if (!adminId.trim() || !newPass.trim()) {
-      setMsg("Both fields are required.");
-      return;
+    if (newPassword !== confirmPassword) {
+      return setError("Passwords do not match.");
+    }
+    if (newPassword.length < 6) {
+      return setError("Password must be at least 6 characters.");
     }
 
+    setLoading(true);
     try {
-      const res = await axios.post("http://localhost:3000/test/reset-password", {
-        adminId: adminId.trim(),
-        newPassword: newPass.trim(),
+      await axios.post("http://localhost:3000/test/complete-reset", {
+        token,
+        role,
+        newPassword,
       });
-      setMsg(res.data.message || "Password updated. You can login now.");
+
+      sessionStorage.setItem("signupBanner", "Password updated successfully. Please login.");
+      nav("/login?role=" + role);
     } catch (err) {
-      const errorMsg = err?.response?.data?.error;
-      setMsg(errorMsg || "Something went wrong.");
+      setError(err?.response?.data?.error || "Reset failed. Token may be invalid.");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div style={{ padding: 24 }}>
-      <h2>Reset Admin Password</h2>
-      <form
-        onSubmit={submit}
-        style={{ display: "grid", gap: 8, maxWidth: 360 }}
-      >
-        <label>Admin ID</label>
-        <input
-          value={adminId}
-          onChange={(e) => setAdminId(e.target.value)}
-          placeholder="ADM-..."
-        />
-        <label>New Password</label>
-        <input
-          type="password"
-          value={newPass}
-          onChange={(e) => setNewPass(e.target.value)}
-        />
-        <button type="submit">Reset Password</button>
-      </form>
-      {msg && <p style={{ marginTop: 12 }}>{msg}</p>}
-    </div>
+    <FormLayout>
+      <FormCard>
+        <Title>Set New Password</Title>
+        {error && <ErrorBox>{error}</ErrorBox>}
+        
+        <form onSubmit={handleSubmit} className="grid gap-3">
+          <Label>Reset Token</Label>
+          <Input
+            type="text"
+            placeholder="Token will appear here automatically"
+            value={token}
+            onChange={(e) => setToken(e.target.value)}
+            required
+            className={urlToken ? "bg-gray-50 border-green-200" : ""}
+          />
+
+          <Label>New Password</Label>
+          <Input
+            type="password"
+            placeholder="••••••••"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            required
+          />
+
+          <Label>Confirm New Password</Label>
+          <Input
+            type="password"
+            placeholder="••••••••"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            required
+          />
+
+          <PrimaryButton type="submit" disabled={loading}>
+            {loading ? "Updating..." : "Update Password"}
+          </PrimaryButton>
+        </form>
+      </FormCard>
+    </FormLayout>
   );
 }
