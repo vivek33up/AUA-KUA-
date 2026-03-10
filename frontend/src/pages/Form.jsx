@@ -29,11 +29,19 @@ export default function Form() {
   const [error, setError] = useState("");
   const [submitMessage, setSubmitMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const[submitted,setSubmitted]=useState(false);
   const [formMeta, setFormMeta] = useState(null);
   const [sections, setSections] = useState([]);
   const [answers, setAnswers] = useState({});
   const [fieldErrors, setFieldErrors] = useState({});
   const [stepIndex, setStepIndex] = useState(0);
+  ///AUTOSAVE ASNWERS
+  useEffect(() => {
+  if (!formMeta?.formId) return;
+
+  const key = `form-draft-${formMeta.formId}`;
+  localStorage.setItem(key, JSON.stringify(answers));
+}, [answers, formMeta]);
 
   useEffect(() => {
     const loadForm = async () => {
@@ -77,6 +85,25 @@ export default function Form() {
 
         setFormMeta(schemaRes.data?.form ?? firstForm);
         setSections(sectionsWithSortedQuestions);
+        // Restore saved draft answers
+
+const key = `form-draft-${firstForm.formId}`;
+
+const savedDraft = localStorage.getItem(key);
+
+if (savedDraft) {
+
+  try {
+
+    setAnswers(JSON.parse(savedDraft));
+
+  } catch {
+
+    console.warn("Failed to parse saved draft");
+
+  }
+
+}
       } catch (err) {
         const message =
           err?.response?.data?.error || err?.message || "Failed to load form.";
@@ -135,14 +162,36 @@ export default function Form() {
   };
 
   const toggleCheckboxValue = (question, optionText, checked) => {
-    const current = normalizeValue(question.fieldType, answers[question.questionId]);
-    const next = checked
-      ? [...new Set([...current, optionText])]
-      : current.filter((item) => item !== optionText);
 
-    setFieldValue(question, next);
-  };
+  const current = normalizeValue(question.fieldType, answers[question.questionId]);
 
+  const next = checked
+
+    ? [...new Set([...current, optionText])]
+
+    : current.filter((item) => item !== optionText);
+
+  setFieldValue(question, next);
+
+};
+  ///HANDLER FOR NEXT BUTTON 
+  const handleNext = () => {
+
+  if (!currentSection) return;
+
+  const sectionErrors = validateAllFields(currentSection.questions, answers);
+
+  if (hasValidationErrors(sectionErrors)) {
+
+    setFieldErrors(sectionErrors);
+
+    return;
+
+  }
+
+  setStepIndex((prev) => prev + 1);
+
+};
   const renderQuestion = (question) => {
     const value = normalizeValue(question.fieldType, answers[question.questionId]);
     const error = fieldErrors[question.questionId];
@@ -192,17 +241,60 @@ export default function Form() {
       return renderWithError(
         <div className="space-y-2">
           {(question.options ?? []).map((option) => (
-            <label key={option.optionId} className="flex items-center gap-2 text-sm">
-              <FieldCheckbox
-                value={option.optionText}
-                checked={value.includes(option.optionText)}
-                onChange={(e) =>
-                  toggleCheckboxValue(question, option.optionText, e.target.checked)
-                }
-              />
-              <span>{option.optionText}</span>
-            </label>
-          ))}
+
+  <div key={option.optionId} className="flex flex-col gap-1">
+
+    <label className="flex items-center gap-2 text-sm">
+
+      <FieldCheckbox
+
+        value={option.optionText}
+
+        checked={value.includes(option.optionText)}
+
+        onChange={(e) =>
+
+          toggleCheckboxValue(question, option.optionText, e.target.checked)
+
+        }
+
+      />
+
+      <span>{option.optionText}</span>
+
+    </label>
+
+    {option.optionText === "Other" && value.includes("Other") && (
+
+  <FieldInput
+
+    type="text"
+
+    placeholder="Please specify"
+
+    className="ml-6"
+
+    value={answers[`other-${question.questionId}`] || ""}
+
+    onChange={(e) =>
+
+      setAnswers((prev) => ({
+
+        ...prev,
+
+        [`other-${question.questionId}`]: e.target.value,
+
+      }))
+
+    }
+
+  />
+
+)}
+
+  </div>
+
+))}
         </div>
       );
     }
@@ -247,13 +339,94 @@ export default function Form() {
           id={`q-${question.questionId}`}
           type="file"
           required={question.isRequired}
-          onChange={(e) => setFieldValue(question, e.target.files?.[0]?.name ?? "")}
+          onChange={(e) => {
+
+  const file = e.target.files?.[0];
+
+  if (file) setFieldValue(question, file.name);
+
+}}
           onBlur={() => handleBlur(question)}
           className={error ? "border-2 border-red-500" : ""}
         />
       );
     }
+    //.add repeatable------------------------------------------------
+    if (question.repeatable) {
 
+  const values = Array.isArray(answers[question.questionId])
+
+    ? answers[question.questionId]
+
+    : [""];
+
+  const addField = () => {
+
+    if (values.length < (question.maxRepeats || 3)) {
+
+      setAnswers((prev) => ({
+
+        ...prev,
+
+        [question.questionId]: [...values, ""],
+
+      }));
+
+    }
+
+  };
+
+  const updateValue = (index, val) => {
+
+    const next = [...values];
+
+    next[index] = val;
+
+    setAnswers((prev) => ({
+
+      ...prev,
+
+      [question.questionId]: next,
+
+    }));
+
+  };
+
+  return (
+
+    <div className="space-y-2">
+
+      {values.map((v, i) => (
+
+        <FieldInput
+
+          key={i}
+
+          value={v}
+
+          placeholder={`Entry ${i + 1}`}
+
+          onChange={(e) => updateValue(i, e.target.value)}
+
+        />
+
+      ))}
+
+      {values.length < (question.maxRepeats || 3) && (
+
+        <SecondaryButton type="button" onClick={addField}>
+
+          Add another
+
+        </SecondaryButton>
+
+      )}
+
+    </div>
+
+  );
+
+}
     return renderWithError(
       <FieldInput
         id={`q-${question.questionId}`}
@@ -308,7 +481,13 @@ const handleSubmit = async () => {
 
     const answerRows = allQuestions
       .map((question) => {
-        const raw = answers[question.questionId];
+        let raw=answers[question.questionId]
+        if(Array.isArray(raw)&& raw.includes("Other")){
+          const otherText=answers[`other-${question.questionId}`];
+          if(otherText){
+            raw=[...raw.filter(v=>v!=="Other"), `Other: ${otherText}`];
+          }
+        }
         if (raw === undefined || raw === null) return null;
         if (Array.isArray(raw) && raw.length === 0) return null;
         if (typeof raw === "string" && raw.trim() === "") return null;
@@ -366,6 +545,10 @@ const handleSubmit = async () => {
     }
 
     setSubmitMessage("Application submitted successfully.");
+    setSubmitted(true);
+    //clear draft after submit
+    const key = `form-draft-${formMeta.formId}`;
+    localStorage.removeItem(key);   
   } catch (err) {
     const message =
       err?.response?.data?.error || err?.message || "Failed to submit application.";
@@ -443,16 +626,17 @@ const handleSubmit = async () => {
           </SecondaryButton>
 
           {!isLast ? (
+            
             <PrimaryButton
               type="button"
-              onClick={() => setStepIndex((prev) => prev + 1)}
+              onClick={handleNext}
               disabled={submitting}
             >
               Next
             </PrimaryButton>
           ) : (
-            <AnimatedCtaButton type="button" onClick={handleSubmit} disabled={submitting}>
-              {submitting ? "Submitting..." : "Review & Submit"}
+            <AnimatedCtaButton type="button" onClick={handleSubmit} disabled={submitting||submitted}>
+              {submitted ? "Submitted" :submitting? "Submitting...":"Review & Submit"}
             </AnimatedCtaButton>
           )}
         </div>
