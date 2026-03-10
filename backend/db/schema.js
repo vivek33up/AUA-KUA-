@@ -16,6 +16,9 @@ export const users = pgTable("users", {
   email: varchar("email", { length: 255 }).notNull(),
   password: varchar("password", { length: 255 }).notNull(),
   role: varchar("role", { length: 50 }).notNull().default("user"),
+
+  resetToken: text("resetToken"),
+  resetTokenExpiry: timestamp("resetTokenExpiry"),
 });
 
 /************ FORMS ************/
