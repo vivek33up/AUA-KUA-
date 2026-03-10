@@ -29,11 +29,19 @@ export default function Form() {
   const [error, setError] = useState("");
   const [submitMessage, setSubmitMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const[submitted,setSubmitted]=useState(false);
   const [formMeta, setFormMeta] = useState(null);
   const [sections, setSections] = useState([]);
   const [answers, setAnswers] = useState({});
   const [fieldErrors, setFieldErrors] = useState({});
   const [stepIndex, setStepIndex] = useState(0);
+  ///AUTOSAVE ASNWERS
+  useEffect(() => {
+  if (!formMeta?.formId) return;
+
+  const key = `form-draft-${formMeta.formId}`;
+  localStorage.setItem(key, JSON.stringify(answers));
+}, [answers, formMeta]);
 
   useEffect(() => {
     const loadForm = async () => {
@@ -77,6 +85,25 @@ export default function Form() {
 
         setFormMeta(schemaRes.data?.form ?? firstForm);
         setSections(sectionsWithSortedQuestions);
+        // Restore saved draft answers
+
+const key = `form-draft-${firstForm.formId}`;
+
+const savedDraft = localStorage.getItem(key);
+
+if (savedDraft) {
+
+  try {
+
+    setAnswers(JSON.parse(savedDraft));
+
+  } catch {
+
+    console.warn("Failed to parse saved draft");
+
+  }
+
+}
       } catch (err) {
         const message =
           err?.response?.data?.error || err?.message || "Failed to load form.";
@@ -135,13 +162,18 @@ export default function Form() {
   };
 
   const toggleCheckboxValue = (question, optionText, checked) => {
-    const current = normalizeValue(question.fieldType, answers[question.questionId]);
-    const next = checked
-      ? [...new Set([...current, optionText])]
-      : current.filter((item) => item !== optionText);
 
-    setFieldValue(question, next);
-  };
+  const current = normalizeValue(question.fieldType, answers[question.questionId]);
+
+  const next = checked
+
+    ? [...new Set([...current, optionText])]
+
+    : current.filter((item) => item !== optionText);
+
+  setFieldValue(question, next);
+
+};
   ///HANDLER FOR NEXT BUTTON 
   const handleNext = () => {
 
@@ -234,23 +266,31 @@ export default function Form() {
 
     {option.optionText === "Other" && value.includes("Other") && (
 
-      <FieldInput
+  <FieldInput
 
-        type="text"
+    type="text"
 
-        placeholder="Please specify"
+    placeholder="Please specify"
 
-        className="ml-6"
+    className="ml-6"
 
-        onChange={(e) =>
+    value={answers[`other-${question.questionId}`] || ""}
 
-          setFieldValue(question, [...value.filter(v => v !== "Other"), `Other:${e.target.value}`])
+    onChange={(e) =>
 
-        }
+      setAnswers((prev) => ({
 
-      />
+        ...prev,
 
-    )}
+        [`other-${question.questionId}`]: e.target.value,
+
+      }))
+
+    }
+
+  />
+
+)}
 
   </div>
 
@@ -441,7 +481,13 @@ const handleSubmit = async () => {
 
     const answerRows = allQuestions
       .map((question) => {
-        const raw = answers[question.questionId];
+        let raw=answers[question.questionId]
+        if(Array.isArray(raw)&& raw.includes("Other")){
+          const otherText=answers[`other-${question.questionId}`];
+          if(otherText){
+            raw=[...raw.filter(v=>v!=="Other"), `Other: ${otherText}`];
+          }
+        }
         if (raw === undefined || raw === null) return null;
         if (Array.isArray(raw) && raw.length === 0) return null;
         if (typeof raw === "string" && raw.trim() === "") return null;
@@ -499,6 +545,10 @@ const handleSubmit = async () => {
     }
 
     setSubmitMessage("Application submitted successfully.");
+    setSubmitted(true);
+    //clear draft after submit
+    const key = `form-draft-${formMeta.formId}`;
+    localStorage.removeItem(key);   
   } catch (err) {
     const message =
       err?.response?.data?.error || err?.message || "Failed to submit application.";
@@ -585,8 +635,8 @@ const handleSubmit = async () => {
               Next
             </PrimaryButton>
           ) : (
-            <AnimatedCtaButton type="button" onClick={handleSubmit} disabled={submitting}>
-              {submitting ? "Submitting..." : "Review & Submit"}
+            <AnimatedCtaButton type="button" onClick={handleSubmit} disabled={submitting||submitted}>
+              {submitted ? "Submitted" :submitting? "Submitting...":"Review & Submit"}
             </AnimatedCtaButton>
           )}
         </div>

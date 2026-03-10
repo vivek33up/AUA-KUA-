@@ -395,6 +395,11 @@ app.post("/applications/:id/submit", authenticateToken, requireRole("user"), asy
       .select()
       .from(applications)
       .where(eq(applications.applicationId, id));
+    if (application.status=="submitted"){
+      return res.status(400).json({
+        error:"Application already submitted"
+      });
+    }
 
     if (!application) {
       return res.status(404).json({ error: "Application not found" });
