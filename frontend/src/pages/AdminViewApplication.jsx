@@ -47,7 +47,7 @@ export default function AdminViewApplication() {
             <>
               <div style={{ marginBottom: '30px' }}>
                 <p><strong>Applicant:</strong> {app.username}</p>
-                <p><strong>User ID:</strong> {app.userId ? app.userId.substring(0, 6) : 'N/A'}</p>
+                <p><strong>Application ID:</strong> {app.applicationId ? app.applicationId : 'N/A'}</p>
                 <p><strong>Status:</strong> <span style={{ color: 'green', fontWeight: 'bold' }}>{app.status}</span></p>
               </div>
 

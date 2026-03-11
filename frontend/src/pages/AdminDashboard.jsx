@@ -76,7 +76,7 @@ export default function AdminDashboard() {
             <thead>
               <tr style={{ borderBottom: '1.5px solid #fff' }}>
                 <th style={{ padding: '15px', textAlign: 'left', borderRight: '1.5px solid #fff', width: '25%' }}>Username</th>
-                <th style={{ padding: '15px', textAlign: 'left', borderRight: '1.5px solid #fff', width: '25%' }}>UserID</th>
+                <th style={{ padding: '15px', textAlign: 'left', borderRight: '1.5px solid #fff', width: '25%' }}>Application ID</th>
                 <th style={{ padding: '15px', textAlign: 'left', borderRight: '1.5px solid #fff', width: '25%' }}>Form Status</th>
                 <th style={{ padding: '15px', textAlign: 'center', width: '25%' }}>View Form</th>
               </tr>
@@ -92,7 +92,7 @@ export default function AdminDashboard() {
                 applications.map((app) => (
                   <tr key={app.applicationId}>
                     <td style={{ padding: '15px', borderRight: '1.5px solid #fff' }}>{app.username || 'N/A'}</td>
-                    <td style={{ padding: '15px', borderRight: '1.5px solid #fff' }}>{app.userId ? app.userId.substring(0, 6) : 'N/A'}</td>
+                    <td style={{ padding: '15px', borderRight: '1.5px solid #fff' }}>{app.applicationId ? app.applicationId : 'N/A'}</td>
                     <td style={{ padding: '15px', borderRight: '1.5px solid #fff' }}>{app.status}</td>
                     <td style={{ padding: '15px', textAlign: 'center' }}>
                       <button 
