@@ -47,6 +47,7 @@ export default function AdminViewApplication() {
             <>
               <div style={{ marginBottom: '30px' }}>
                 <p><strong>Applicant:</strong> {app.username}</p>
+                <p><strong>User ID:</strong> {app.userId ? app.userId.substring(0, 6) : 'N/A'}</p>
                 <p><strong>Status:</strong> <span style={{ color: 'green', fontWeight: 'bold' }}>{app.status}</span></p>
               </div>
 
@@ -61,7 +62,7 @@ export default function AdminViewApplication() {
                     </div>
                     <div style={{ color: '#333' }}>
                       {ans.fieldType === 'file' ? (
-                        <a href={`${app.fileBaseUrl}${ans.answer}`} target="_blank" rel="noreferrer" style={{ color: '#007bff', fontWeight: 'bold' }}>
+                        <a href={`${app.fileBaseUrl}${ans.answer}`} target="_blank" rel="noreferrer" style={{ color: '#007bff', fontWeight: 'bold' }} download>
                           View Document 📄
                         </a>
                       ) : (

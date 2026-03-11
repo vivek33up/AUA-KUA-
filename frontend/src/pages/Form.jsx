@@ -291,18 +291,41 @@ export default function Form() {
     }
 
     if (question.fieldType === "file") {
+      const uploadedFile = answers[question.questionId];
       return renderWithError(
-        <FieldInput
-          id={`q-${question.questionId}`}
-          type="file"
-          required={question.isRequired}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) setFieldValue(question, file.name);
-          }}
-          onBlur={() => handleBlur(question)}
-          className={error ? "border-2 border-red-500" : ""}
-        />
+        <div>
+          <FieldInput
+            id={`q-${question.questionId}`}
+            type="file"
+            required={question.isRequired}
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                const formData = new FormData();
+                formData.append("file", file);
+                const token = getToken();
+                const res = await fetch("http://localhost:3000/upload", {
+                  method: "POST",
+                  headers: { Authorization: `Bearer ${token}` },
+                  body: formData,
+                });
+                const data = await res.json();
+                if (data.filePath) {
+                  setFieldValue(question, data.filePath.replace("/uploads/", ""));
+                }
+              }
+            }}
+            onBlur={() => handleBlur(question)}
+            className={error ? "border-2 border-red-500" : ""}
+          />
+          {uploadedFile && (
+            <div style={{ marginTop: 8 }}>
+              <span style={{ color: "#007bff", fontWeight: "bold" }}>
+                Uploaded: {uploadedFile}
+              </span>
+            </div>
+          )}
+        </div>
       );
     }
 

@@ -17,6 +17,31 @@ import {
 import { authenticateToken, requireRole, generateToken } from "./middleware/auth.js";
 import { validateAnswers, sanitizeAnswers } from "./validation.js";
 
+// Import the crypto module for generating random IDs
+import crypto from "crypto";
+
+// Import the uuid library for generating valid UUIDs
+import { v4 as uuidv4 } from "uuid";
+
+// Function to generate a valid UUID and truncate it for display
+function generate6CharId() {
+  return uuidv4().split("-")[0]; // Generate a UUID and take the first segment (6 characters)
+}
+
+import multer from "multer";
+//const path = require("path");
+import path from "path";
+// Update multer configuration to include original file extension
+const storage = multer.diskStorage({
+  destination: "uploads/",
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname); // Extract original file extension
+    cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`); // Save file with original extension
+  }
+});
+const upload = multer({ storage });
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -47,13 +72,19 @@ app.post("/test/add-user", async (req, res) => {
 
     const [result] = await db
       .insert(users)
-      .values({ name, email, password: hashedPassword, role })
+      .values({
+        name,
+        email,
+        password: hashedPassword,
+        role,
+        userId: uuidv4(), // Generate valid UUID for database
+      })
       .returning();
 
     if (role === "admin") {
       return res.json({
         message: "Admin created",
-        adminId: result.userId,
+        adminId: result.userId.substring(0, 6), // Display truncated UUID
         user: { ...result, password: undefined },
       });
     }
@@ -427,6 +458,24 @@ app.get("/admin/applications/:id", authenticateToken, requireRole("admin"), asyn
 
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// File upload endpoint
+app.post("/upload", authenticateToken, requireRole("user"), upload.single("file"), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    // Respond with the file path
+    res.json({
+      message: "File uploaded successfully",
+      filePath: `/uploads/${req.file.filename}`,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "File upload failed" });
   }
 });
 

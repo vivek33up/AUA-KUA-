@@ -54,7 +54,7 @@ export default function AdminDashboard() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <h1 style={{ margin: 0, fontSize: '1.8rem', letterSpacing: '2px' }}>DASHBOARD</h1>
           <div style={{ textAlign: 'right' }}>
-            <p style={{ margin: 0 }}>Hello {session?.userId || 'Admin'}</p>
+            <p style={{ margin: 0 }}>Hello {session?.userId ? session.userId.substring(0, 6) : 'Admin'}</p>
             <button 
               onClick={handleLogout}
               style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', textDecoration: 'underline', padding: 0, fontWeight: 'bold' }}
@@ -92,7 +92,7 @@ export default function AdminDashboard() {
                 applications.map((app) => (
                   <tr key={app.applicationId}>
                     <td style={{ padding: '15px', borderRight: '1.5px solid #fff' }}>{app.username || 'N/A'}</td>
-                    <td style={{ padding: '15px', borderRight: '1.5px solid #fff' }}>{app.userId}</td>
+                    <td style={{ padding: '15px', borderRight: '1.5px solid #fff' }}>{app.userId ? app.userId.substring(0, 6) : 'N/A'}</td>
                     <td style={{ padding: '15px', borderRight: '1.5px solid #fff' }}>{app.status}</td>
                     <td style={{ padding: '15px', textAlign: 'center' }}>
                       <button 
