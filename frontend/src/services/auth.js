@@ -20,13 +20,14 @@ export function removeToken() {
 
 /**
  * Decode the JWT payload (without cryptographic verification).
- * Returns { userId, role, iat, exp } or null.
+ * Returns { userId, role, iat, exp, token } or null.
  */
 export function getSession() {
   const token = getToken();
   if (!token) return null;
 
   try {
+    // Decode the middle part (payload) of the JWT string
     const payload = JSON.parse(atob(token.split(".")[1]));
 
     // Check if token has expired
@@ -35,8 +36,12 @@ export function getSession() {
       return null;
     }
 
-    return payload;
-  } catch {
+    // UPDATED: Return the payload spread AND the raw token string
+    return { 
+      ...payload, 
+      token 
+    };
+  } catch (err) {
     removeToken();
     return null;
   }
