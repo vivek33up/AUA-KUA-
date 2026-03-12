@@ -11,10 +11,14 @@ import {
   formQuestions,
   questionOptions,
   applications,
-  responses
+  responses,
 } from "./db/schema.js";
 
-import { authenticateToken, requireRole, generateToken } from "./middleware/auth.js";
+import {
+  authenticateToken,
+  requireRole,
+  generateToken,
+} from "./middleware/auth.js";
 import { validateAnswers, sanitizeAnswers } from "./validation.js";
 
 // Import the crypto module for generating random IDs
@@ -35,10 +39,10 @@ import path from "path";
 const storage = multer.diskStorage({
   destination: "uploads/",
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     const ext = path.extname(file.originalname); // Extract original file extension
     cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`); // Save file with original extension
-  }
+  },
 });
 const upload = multer({ storage });
 
@@ -65,7 +69,9 @@ app.post("/test/add-user", async (req, res) => {
     if (existing.length > 0) {
       return res
         .status(400)
-        .json({ error: role === "admin" ? "ADMIN_EMAIL_TAKEN" : "USER_EXISTS" });
+        .json({
+          error: role === "admin" ? "ADMIN_EMAIL_TAKEN" : "USER_EXISTS",
+        });
     }
 
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
@@ -93,7 +99,6 @@ app.post("/test/add-user", async (req, res) => {
       message: "User created",
       user: { ...result, password: undefined },
     });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
@@ -108,16 +113,15 @@ app.post("/test/login", async (req, res) => {
     let user;
 
     if (role === "admin") {
-  [user] = await db
-    .select()
-    .from(users)
-    .where(and(eq(users.email, email), eq(users.role, "admin")));
+      [user] = await db
+        .select()
+        .from(users)
+        .where(and(eq(users.email, email), eq(users.role, "admin")));
 
-  if (!user) {
-    return res.status(404).json({ error: "Admin account not found" });
-  }
-}
-    else {
+      if (!user) {
+        return res.status(404).json({ error: "Admin account not found" });
+      }
+    } else {
       [user] = await db
         .select()
         .from(users)
@@ -143,8 +147,8 @@ app.post("/test/login", async (req, res) => {
             and(
               eq(applications.userId, user.userId),
               eq(applications.formId, firstForm.formId),
-              eq(applications.status, "draft")
-            )
+              eq(applications.status, "draft"),
+            ),
           )
           .limit(1);
 
@@ -166,7 +170,6 @@ app.post("/test/login", async (req, res) => {
       role: user.role,
       token,
     });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
@@ -188,7 +191,6 @@ app.post("/test/recover-admin-id", async (req, res) => {
     }
 
     res.json({ adminId: admin.userId });
-
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -207,7 +209,6 @@ app.post("/test/reset-password", async (req, res) => {
       .where(eq(users.userId, adminId));
 
     res.json({ message: "Password updated successfully." });
-
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -242,7 +243,6 @@ app.get("/forms/:formId", authenticateToken, async (req, res) => {
     const result = [];
 
     for (const section of sections) {
-
       const questions = await db
         .select()
         .from(formQuestions)
@@ -252,7 +252,6 @@ app.get("/forms/:formId", authenticateToken, async (req, res) => {
       const questionList = [];
 
       for (const question of questions) {
-
         const options = await db
           .select()
           .from(questionOptions)
@@ -261,223 +260,247 @@ app.get("/forms/:formId", authenticateToken, async (req, res) => {
 
         questionList.push({
           ...question,
-          options
+          options,
         });
-
       }
 
       result.push({
         ...section,
-        questions: questionList
+        questions: questionList,
       });
-
     }
 
     res.json({ form, sections: result });
-
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 /************ START APPLICATION ************/
-app.post("/applications/start", authenticateToken, requireRole("user"), async (req, res) => {
-  try {
-    const { userId, formId } = req.body;
+app.post(
+  "/applications/start",
+  authenticateToken,
+  requireRole("user"),
+  async (req, res) => {
+    try {
+      const { userId, formId } = req.body;
 
-    const [existingDraft] = await db
-      .select()
-      .from(applications)
-      .where(
-        and(
-          eq(applications.userId, userId),
-          eq(applications.formId, formId),
-          eq(applications.status, "draft")
-        )
-      );
+      const [existingDraft] = await db
+        .select()
+        .from(applications)
+        .where(
+          and(
+            eq(applications.userId, userId),
+            eq(applications.formId, formId),
+            eq(applications.status, "draft"),
+          ),
+        );
 
-    if (existingDraft) return res.json(existingDraft);
+      if (existingDraft) return res.json(existingDraft);
 
-    const [application] = await db
-      .insert(applications)
-      .values({ userId, formId, status: "draft" })
-      .returning();
+      const [application] = await db
+        .insert(applications)
+        .values({ userId, formId, status: "draft" })
+        .returning();
 
-    res.json(application);
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+      res.json(application);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  },
+);
 
 /************ SAVE ANSWERS ************/
-app.post("/applications/:id/answers", authenticateToken, requireRole("user"), async (req, res) => {
-  try {
+app.post(
+  "/applications/:id/answers",
+  authenticateToken,
+  requireRole("user"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { answers } = req.body;
 
-    const { id } = req.params;
-    const { answers } = req.body;
-
-    const [application] = await db
-      .select()
-      .from(applications)
-      .where(eq(applications.applicationId, id));
-
-    const sections = await db
-      .select()
-      .from(formSections)
-      .where(eq(formSections.formId, application.formId));
-
-    const allQuestions = [];
-
-    for (const section of sections) {
-      const questions = await db
+      const [application] = await db
         .select()
-        .from(formQuestions)
-        .where(eq(formQuestions.sectionId, section.sectionId));
-      allQuestions.push(...questions);
+        .from(applications)
+        .where(eq(applications.applicationId, id));
+
+      const sections = await db
+        .select()
+        .from(formSections)
+        .where(eq(formSections.formId, application.formId));
+
+      const allQuestions = [];
+
+      for (const section of sections) {
+        const questions = await db
+          .select()
+          .from(formQuestions)
+          .where(eq(formQuestions.sectionId, section.sectionId));
+        allQuestions.push(...questions);
+      }
+
+      const validationErrors = validateAnswers(allQuestions, answers);
+      if (validationErrors.length > 0) {
+        return res.status(400).json({
+          error: "Validation failed",
+          details: validationErrors,
+        });
+      }
+
+      const sanitizedAnswers = sanitizeAnswers(answers);
+
+      const rows = sanitizedAnswers.map((a) => ({
+        applicationId: id,
+        questionId: a.questionId,
+        answer: a.answer,
+      }));
+
+      await db.delete(responses).where(eq(responses.applicationId, id));
+      await db.insert(responses).values(rows);
+
+      res.json({ message: "Answers saved successfully" });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
     }
-
-    const validationErrors = validateAnswers(allQuestions, answers);
-    if (validationErrors.length > 0) {
-      return res.status(400).json({
-        error: "Validation failed",
-        details: validationErrors
-      });
-    }
-
-    const sanitizedAnswers = sanitizeAnswers(answers);
-
-    const rows = sanitizedAnswers.map((a) => ({
-      applicationId: id,
-      questionId: a.questionId,
-      answer: a.answer
-    }));
-
-    await db.delete(responses).where(eq(responses.applicationId, id));
-    await db.insert(responses).values(rows);
-
-    res.json({ message: "Answers saved successfully" });
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  },
+);
 
 /************ SUBMIT APPLICATION ************/
-app.post("/applications/:id/submit", authenticateToken, requireRole("user"), async (req, res) => {
-  try {
+app.post(
+  "/applications/:id/submit",
+  authenticateToken,
+  requireRole("user"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
 
-    const { id } = req.params;
+      const [application] = await db
+        .select()
+        .from(applications)
+        .where(eq(applications.applicationId, id));
 
-    const [application] = await db
-      .select()
-      .from(applications)
-      .where(eq(applications.applicationId, id));
+      if (application.status === "submitted") {
+        return res.status(400).json({ error: "Application already submitted" });
+      }
 
-    if (application.status === "submitted") {
-      return res.status(400).json({ error: "Application already submitted" });
+      const [updatedApplication] = await db
+        .update(applications)
+        .set({ status: "submitted" })
+        .where(eq(applications.applicationId, id))
+        .returning();
+
+      res.json({
+        message: "Application submitted successfully",
+        applicationId: updatedApplication.applicationId,
+      });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
     }
-
-    await db
-      .update(applications)
-      .set({ status: "submitted" })
-      .where(eq(applications.applicationId, id));
-
-    res.json({
-      message: "Application submitted successfully"
-    });
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  },
+);
 
 /************ ADMIN ROUTES ************/
 
 // List all applications
-app.get("/admin/applications", authenticateToken, requireRole("admin"), async (req, res) => {
-  try {
+app.get(
+  "/admin/applications",
+  authenticateToken,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const allApplications = await db
+        .select({
+          applicationId: applications.applicationId,
+          userId: applications.userId,
+          status: applications.status,
+          username: users.name,
+          createdAt: applications.createdAt,
+        })
+        .from(applications)
+        .innerJoin(users, eq(applications.userId, users.userId));
 
-    const allApplications = await db
-      .select({
-        applicationId: applications.applicationId,
-        userId: applications.userId,
-        status: applications.status,
-        username: users.name,
-        createdAt: applications.createdAt
-      })
-      .from(applications)
-      .innerJoin(users, eq(applications.userId, users.userId));
-
-    res.json(allApplications);
-
-  } catch (err) {
-    res.status(500).json({ error: "Failed to fetch applications" });
-  }
-});
+      res.json(allApplications);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch applications" });
+    }
+  },
+);
 
 // Get single application
-app.get("/admin/applications/:id", authenticateToken, requireRole("admin"), async (req, res) => {
-  try {
+app.get(
+  "/admin/applications/:id",
+  authenticateToken,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
 
-    const { id } = req.params;
+      const [application] = await db
+        .select({
+          applicationId: applications.applicationId,
+          userId: applications.userId,
+          status: applications.status,
+          createdAt: applications.createdAt,
+          username: users.name,
+        })
+        .from(applications)
+        .innerJoin(users, eq(applications.userId, users.userId))
+        .where(eq(applications.applicationId, id))
+        .limit(1);
 
-    const [application] = await db
-      .select({
-        applicationId: applications.applicationId,
-        userId: applications.userId,
-        status: applications.status,
-        createdAt: applications.createdAt,
-        username: users.name
-      })
-      .from(applications)
-      .innerJoin(users, eq(applications.userId, users.userId))
-      .where(eq(applications.applicationId, id))
-      .limit(1);
+      if (!application) {
+        return res.status(404).json({ error: "Application not found" });
+      }
 
-    if (!application) {
-      return res.status(404).json({ error: "Application not found" });
+      const userAnswers = await db
+        .select({
+          questionId: responses.questionId,
+          answer: responses.answer,
+          questionText: formQuestions.questionText,
+          fieldType: formQuestions.fieldType,
+        })
+        .from(responses)
+        .innerJoin(
+          formQuestions,
+          eq(responses.questionId, formQuestions.questionId),
+        )
+        .where(eq(responses.applicationId, id));
+
+      res.json({
+        ...application,
+        answers: userAnswers,
+        fileBaseUrl: "http://localhost:3000/uploads/",
+      });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
     }
-
-    const userAnswers = await db
-      .select({
-        questionId: responses.questionId,
-        answer: responses.answer,
-        questionText: formQuestions.questionText,
-        fieldType: formQuestions.fieldType
-      })
-      .from(responses)
-      .innerJoin(formQuestions, eq(responses.questionId, formQuestions.questionId))
-      .where(eq(responses.applicationId, id));
-
-    res.json({
-      ...application,
-      answers: userAnswers,
-      fileBaseUrl: "http://localhost:3000/uploads/"
-    });
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  },
+);
 
 // File upload endpoint
-app.post("/upload", authenticateToken, requireRole("user"), upload.single("file"), (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: "No file uploaded" });
-    }
+app.post(
+  "/upload",
+  authenticateToken,
+  requireRole("user"),
+  upload.single("file"),
+  (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
 
-    // Respond with the file path
-    res.json({
-      message: "File uploaded successfully",
-      filePath: `/uploads/${req.file.filename}`,
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "File upload failed" });
-  }
-});
+      // Respond with the file path
+      res.json({
+        message: "File uploaded successfully",
+        filePath: `/uploads/${req.file.filename}`,
+      });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "File upload failed" });
+    }
+  },
+);
 
 /************ START SERVER ************/
 const PORT = process.env.PORT ?? 3000;

@@ -17,10 +17,15 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { getSession, getToken } from "../services/auth";
-import { validateField, validateAllFields, hasValidationErrors } from "../services/validation";
+import {
+  validateField,
+  validateAllFields,
+  hasValidationErrors,
+} from "../services/validation";
 
 function normalizeValue(fieldType, currentValue) {
-  if (fieldType === "checkbox") return Array.isArray(currentValue) ? currentValue : [];
+  if (fieldType === "checkbox")
+    return Array.isArray(currentValue) ? currentValue : [];
   return typeof currentValue === "string" ? currentValue : "";
 }
 
@@ -35,7 +40,8 @@ export default function Form() {
   const [answers, setAnswers] = useState({});
   const [fieldErrors, setFieldErrors] = useState({});
   const [stepIndex, setStepIndex] = useState(0);
-
+  const [reviewMode, setReviewMode] = useState(false);
+  const [submittedApplicationId, setSubmittedApplicationId] = useState(null);
   /** ----------------------------- AUTOSAVE ANSWERS ----------------------------- */
   useEffect(() => {
     if (!formMeta?.formId) return;
@@ -70,17 +76,17 @@ export default function Form() {
 
         const schemaRes = await axios.get(
           `http://localhost:3000/forms/${firstForm.formId}`,
-          { headers: authHeaders }
+          { headers: authHeaders },
         );
 
         const sortedSections = [...(schemaRes.data?.sections ?? [])].sort(
-          (a, b) => Number(a.order ?? 0) - Number(b.order ?? 0)
+          (a, b) => Number(a.order ?? 0) - Number(b.order ?? 0),
         );
 
         const sectionsWithSortedQuestions = sortedSections.map((section) => ({
           ...section,
           questions: [...(section.questions ?? [])].sort(
-            (a, b) => Number(a.order ?? 0) - Number(b.order ?? 0)
+            (a, b) => Number(a.order ?? 0) - Number(b.order ?? 0),
           ),
         }));
 
@@ -128,7 +134,7 @@ export default function Form() {
 
   const allQuestions = useMemo(
     () => sections.flatMap((section) => section.questions ?? []),
-    [sections]
+    [sections],
   );
 
   /** ----------------------------- FIELD HANDLERS ----------------------------- */
@@ -157,7 +163,10 @@ export default function Form() {
   };
 
   const toggleCheckboxValue = (question, optionText, checked) => {
-    const current = normalizeValue(question.fieldType, answers[question.questionId]);
+    const current = normalizeValue(
+      question.fieldType,
+      answers[question.questionId],
+    );
     const next = checked
       ? [...new Set([...current, optionText])]
       : current.filter((item) => item !== optionText);
@@ -177,13 +186,18 @@ export default function Form() {
 
   /** ------------------------- RENDER A SINGLE QUESTION ----------------------- */
   const renderQuestion = (question) => {
-    const value = normalizeValue(question.fieldType, answers[question.questionId]);
+    const value = normalizeValue(
+      question.fieldType,
+      answers[question.questionId],
+    );
     const error = fieldErrors[question.questionId];
 
     const renderWithError = (component) => (
       <div>
         {component}
-        {error && <p className="text-red-600 text-sm mt-1 font-medium">{error}</p>}
+        {error && (
+          <p className="text-red-600 text-sm mt-1 font-medium">{error}</p>
+        )}
       </div>
     );
 
@@ -197,7 +211,7 @@ export default function Form() {
           onBlur={() => handleBlur(question)}
           placeholder="Type your response..."
           className={error ? "border-2 border-red-500" : ""}
-        />
+        />,
       );
     }
 
@@ -205,7 +219,10 @@ export default function Form() {
       return renderWithError(
         <div className="space-y-2">
           {(question.options ?? []).map((option) => (
-            <label key={option.optionId} className="flex items-center gap-2 text-sm">
+            <label
+              key={option.optionId}
+              className="flex items-center gap-2 text-sm"
+            >
               <FieldRadio
                 name={`q-${question.questionId}`}
                 value={option.optionText}
@@ -215,7 +232,7 @@ export default function Form() {
               <span>{option.optionText}</span>
             </label>
           ))}
-        </div>
+        </div>,
       );
     }
 
@@ -229,7 +246,11 @@ export default function Form() {
                   value={option.optionText}
                   checked={value.includes(option.optionText)}
                   onChange={(e) =>
-                    toggleCheckboxValue(question, option.optionText, e.target.checked)
+                    toggleCheckboxValue(
+                      question,
+                      option.optionText,
+                      e.target.checked,
+                    )
                   }
                 />
                 <span>{option.optionText}</span>
@@ -252,7 +273,7 @@ export default function Form() {
               )}
             </div>
           ))}
-        </div>
+        </div>,
       );
     }
 
@@ -272,7 +293,7 @@ export default function Form() {
               {option.optionText}
             </option>
           ))}
-        </FieldSelect>
+        </FieldSelect>,
       );
     }
 
@@ -286,7 +307,7 @@ export default function Form() {
           onChange={(e) => setFieldValue(question, e.target.value)}
           onBlur={() => handleBlur(question)}
           className={error ? "border-2 border-red-500" : ""}
-        />
+        />,
       );
     }
 
@@ -311,7 +332,10 @@ export default function Form() {
                 });
                 const data = await res.json();
                 if (data.filePath) {
-                  setFieldValue(question, data.filePath.replace("/uploads/", ""));
+                  setFieldValue(
+                    question,
+                    data.filePath.replace("/uploads/", ""),
+                  );
                 }
               }
             }}
@@ -325,7 +349,7 @@ export default function Form() {
               </span>
             </div>
           )}
-        </div>
+        </div>,
       );
     }
 
@@ -383,7 +407,7 @@ export default function Form() {
         onBlur={() => handleBlur(question)}
         placeholder="Enter text"
         className={error ? "border-2 border-red-500" : ""}
-      />
+      />,
     );
   };
 
@@ -410,7 +434,8 @@ export default function Form() {
       const formId = formMeta?.formId;
 
       if (!token) throw new Error("Missing auth token. Please log in again.");
-      if (!userId) throw new Error("User session not found. Please log in again.");
+      if (!userId)
+        throw new Error("User session not found. Please log in again.");
       if (!formId) throw new Error("Form not found.");
 
       const authHeaders = { Authorization: `Bearer ${token}` };
@@ -418,7 +443,7 @@ export default function Form() {
       const startRes = await axios.post(
         "http://localhost:3000/applications/start",
         { userId, formId },
-        { headers: authHeaders }
+        { headers: authHeaders },
       );
 
       const applicationId = startRes.data?.applicationId;
@@ -432,7 +457,10 @@ export default function Form() {
           if (Array.isArray(raw) && raw.includes("Other")) {
             const otherText = answers[`other-${question.questionId}`];
             if (otherText) {
-              raw = [...raw.filter((v) => v !== "Other"), `Other: ${otherText}`];
+              raw = [
+                ...raw.filter((v) => v !== "Other"),
+                `Other: ${otherText}`,
+              ];
             }
           }
 
@@ -453,10 +481,13 @@ export default function Form() {
           await axios.post(
             `http://localhost:3000/applications/${applicationId}/answers`,
             { answers: answerRows },
-            { headers: authHeaders }
+            { headers: authHeaders },
           );
         } catch (answerErr) {
-          if (answerErr.response?.status === 400 && answerErr.response?.data?.details) {
+          if (
+            answerErr.response?.status === 400 &&
+            answerErr.response?.data?.details
+          ) {
             const backendErrors = answerErr.response.data.details;
             const fieldErrorsMap = {};
             backendErrors.forEach((err) => {
@@ -464,19 +495,27 @@ export default function Form() {
             });
             setFieldErrors(fieldErrorsMap);
           }
-          throw new Error(answerErr.response?.data?.error || "Failed to save answers");
+          throw new Error(
+            answerErr.response?.data?.error || "Failed to save answers",
+          );
         }
       }
 
       // Submit application; catch backend validation errors
+      let submittedId;
       try {
-        await axios.post(
+        const submitRes = await axios.post(
           `http://localhost:3000/applications/${applicationId}/submit`,
           {},
-          { headers: authHeaders }
+          { headers: authHeaders },
         );
+
+        submittedId = submitRes.data?.applicationId;
       } catch (submitErr) {
-        if (submitErr.response?.status === 400 && submitErr.response?.data?.details) {
+        if (
+          submitErr.response?.status === 400 &&
+          submitErr.response?.data?.details
+        ) {
           const backendErrors = submitErr.response.data.details;
           const fieldErrorsMap = {};
           backendErrors.forEach((err) => {
@@ -484,10 +523,13 @@ export default function Form() {
           });
           setFieldErrors(fieldErrorsMap);
         }
-        throw new Error(submitErr.response?.data?.error || "Failed to submit application");
+        throw new Error(
+          submitErr.response?.data?.error || "Failed to submit application",
+        );
       }
 
       setSubmitMessage("Application submitted successfully.");
+      setSubmittedApplicationId(submittedId);
       setSubmitted(true);
 
       // Clear draft after submit
@@ -495,7 +537,9 @@ export default function Form() {
       localStorage.removeItem(key);
     } catch (err) {
       const message =
-        err?.response?.data?.error || err?.message || "Failed to submit application.";
+        err?.response?.data?.error ||
+        err?.message ||
+        "Failed to submit application.";
       setError(message);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } finally {
@@ -515,7 +559,13 @@ export default function Form() {
   if (loading) {
     return (
       <FormLayout>
-        <WizardShell title="Loading…" subtitle="" sections={[]} currentIndex={0} percent={0}>
+        <WizardShell
+          title="Loading…"
+          subtitle=""
+          sections={[]}
+          currentIndex={0}
+          percent={0}
+        >
           <div>Loading form…</div>
         </WizardShell>
       </FormLayout>
@@ -525,13 +575,37 @@ export default function Form() {
   if (error && !submitMessage) {
     return (
       <FormLayout>
-        <WizardShell title="Error" subtitle="" sections={[]} currentIndex={0} percent={0}>
+        <WizardShell
+          title="Error"
+          subtitle=""
+          sections={[]}
+          currentIndex={0}
+          percent={0}
+        >
           <ErrorBox>{error}</ErrorBox>
         </WizardShell>
       </FormLayout>
     );
   }
+  if (submitted) {
+    return (
+      <FormLayout>
+        <WizardShell
+          title="Thank You!"
+          subtitle="Your application has been submitted"
+          sections={[]}
+          currentIndex={0}
+          percent={100}
+        >
+          <SuccessBox>Your form has been submitted successfully.</SuccessBox>
 
+          <div className="mt-6 text-lg">
+            <strong>Application ID:</strong> {submittedApplicationId}
+          </div>
+        </WizardShell>
+      </FormLayout>
+    );
+  }
   return (
     <FormLayout>
       <WizardShell
@@ -540,7 +614,7 @@ export default function Form() {
         percent={percent}
         sections={sections.map((s) => s.title || "")}
         currentIndex={stepIndex}
-        onStepClick={handleStepBubbleClick}  // <-- pass guarded handler
+        onStepClick={handleStepBubbleClick} // <-- pass guarded handler
       >
         {error && !submitMessage && (
           <div className="mb-6">
@@ -549,20 +623,54 @@ export default function Form() {
         )}
 
         {currentSection?.title ? (
-          <h3 className="text-lg font-semibold mb-5 text-slate-900">{currentSection.title}</h3>
+          <h3 className="text-lg font-semibold mb-5 text-slate-900">
+            {currentSection.title}
+          </h3>
         ) : null}
 
-        <div className="space-y-4">
-          {(currentSection?.questions ?? []).map((question) => (
-            <div key={question.questionId}>
-              <Label>
-                {question.questionText}
-                {question.isRequired ? <span className="text-red-600"> *</span> : null}
-              </Label>
-              {renderQuestion(question)}
-            </div>
-          ))}
-        </div>
+        {reviewMode ? (
+          <div className="space-y-4">
+            {allQuestions.map((q) => {
+              const value = answers[q.questionId];
+
+              return (
+                <div key={q.questionId} className="border-b pb-3">
+                  <Label>{q.questionText}</Label>
+                  <div className="text-gray-700">
+                    {q.fieldType === "file" && value ? (
+                      <a
+                        href={`http://localhost:3000/uploads/${value}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 underline"
+                      >
+                        View uploaded file
+                      </a>
+                    ) : Array.isArray(value) ? (
+                      value.join(", ")
+                    ) : (
+                      value || "—"
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {(currentSection?.questions ?? []).map((question) => (
+              <div key={question.questionId}>
+                <Label>
+                  {question.questionText}
+                  {question.isRequired ? (
+                    <span className="text-red-600"> *</span>
+                  ) : null}
+                </Label>
+                {renderQuestion(question)}
+              </div>
+            ))}
+          </div>
+        )}
 
         {submitMessage ? (
           <div className="mt-5">
@@ -573,19 +681,41 @@ export default function Form() {
         <div className="mt-6 flex items-center justify-between">
           <SecondaryButton
             type="button"
-            onClick={() => !isFirst && setStepIndex((prev) => prev - 1)}
+            onClick={() => {
+              if (reviewMode) {
+                setReviewMode(false);
+              } else if (!isFirst) {
+                setStepIndex((prev) => prev - 1);
+              }
+            }}
             disabled={isFirst || submitting}
           >
             Back
           </SecondaryButton>
 
           {!isLast ? (
-            <PrimaryButton type="button" onClick={handleNext} disabled={submitting}>
+            <PrimaryButton
+              type="button"
+              onClick={handleNext}
+              disabled={submitting}
+            >
               Next
             </PrimaryButton>
+          ) : !reviewMode ? (
+            <PrimaryButton type="button" onClick={() => setReviewMode(true)}>
+              Review Answers
+            </PrimaryButton>
           ) : (
-            <AnimatedCtaButton type="button" onClick={handleSubmit} disabled={submitting || submitted}>
-              {submitted ? "Submitted" : submitting ? "Submitting..." : "Review & Submit"}
+            <AnimatedCtaButton
+              type="button"
+              onClick={handleSubmit}
+              disabled={submitting || submitted}
+            >
+              {submitted
+                ? "Submitted"
+                : submitting
+                  ? "Submitting..."
+                  : "Submit Application"}
             </AnimatedCtaButton>
           )}
         </div>
