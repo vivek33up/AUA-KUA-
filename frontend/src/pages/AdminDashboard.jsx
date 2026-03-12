@@ -1,7 +1,15 @@
+// src/pages/AdminDashboard.jsx
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { getSession, logout } from "../services/auth";
-import { FormLayout } from "../layouts/LoginLayout";
+import {
+  AdminShell,
+  DataCard,
+  Table,
+  ViewButton,
+  LogoutButton,
+  StatusBadge,       
+} from "../layouts/AdminDashboardLayout";
 
 export default function AdminDashboard() {
   const nav = useNavigate();
@@ -22,9 +30,9 @@ export default function AdminDashboard() {
       const response = await fetch(API_URL, {
         method: "GET",
         headers: {
-          'Authorization': `Bearer ${session.token}`,
-          'Content-Type': 'application/json'
-        }
+          Authorization: `Bearer ${session.token}`,
+          "Content-Type": "application/json",
+        },
       });
 
       if (!response.ok) throw new Error(`Status: ${response.status}`);
@@ -47,77 +55,71 @@ export default function AdminDashboard() {
     nav("/login");
   };
 
-  return (
-    <FormLayout>
-      <div style={{ width: '95%', maxWidth: '1200px', margin: '0 auto', color: 'white', padding: '20px' }}>
-        
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h1 style={{ margin: 0, fontSize: '1.8rem', letterSpacing: '2px' }}>DASHBOARD</h1>
-          <div style={{ textAlign: 'right' }}>
-            <p style={{ margin: 0 }}>Hello {session?.userId ? session.userId.substring(0, 6) : 'Admin'}</p>
-            <button 
-              onClick={handleLogout}
-              style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', textDecoration: 'underline', padding: 0, fontWeight: 'bold' }}
-            >
-              LOGOUT
-            </button>
-          </div>
-        </div>
+  const columns = [
+    { key: "username", title: "Username", width: "25%" },
+    { key: "applicationId", title: "Application ID", width: "25%" },
+    { key: "status", title: "Form Status", width: "25%" },
+    { key: "actions", title: "View Form", width: "25%" },
+  ];
 
-        <hr style={{ borderColor: 'rgba(255,255,255,0.3)', marginBottom: '40px' }} />
-
-        <div style={{ 
-          border: '1.5px solid #fff', 
-          borderRadius: '25px', 
-          padding: '20px', 
-          backgroundColor: 'transparent'
-        }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: '1.5px solid #fff' }}>
-                <th style={{ padding: '15px', textAlign: 'left', borderRight: '1.5px solid #fff', width: '25%' }}>Username</th>
-                <th style={{ padding: '15px', textAlign: 'left', borderRight: '1.5px solid #fff', width: '25%' }}>Application ID</th>
-                <th style={{ padding: '15px', textAlign: 'left', borderRight: '1.5px solid #fff', width: '25%' }}>Form Status</th>
-                <th style={{ padding: '15px', textAlign: 'center', width: '25%' }}>View Form</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan="4" style={{ textAlign: 'center', padding: '60px', fontSize: '1.1rem' }}>
-                    Loading Applications...
-                  </td>
-                </tr>
-              ) : applications.length > 0 ? (
-                applications.map((app) => (
-                  <tr key={app.applicationId}>
-                    <td style={{ padding: '15px', borderRight: '1.5px solid #fff' }}>{app.username || 'N/A'}</td>
-                    <td style={{ padding: '15px', borderRight: '1.5px solid #fff' }}>{app.applicationId ? app.applicationId : 'N/A'}</td>
-                    <td style={{ padding: '15px', borderRight: '1.5px solid #fff' }}>{app.status}</td>
-                    <td style={{ padding: '15px', textAlign: 'center' }}>
-                      <button 
-                        onClick={() => nav(`/admin/applications/${app.applicationId}`)}
-                        style={{ 
-                          background: 'white', color: 'black', border: '1px solid black', 
-                          padding: '6px 20px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' 
-                        }}
-                      >
-                        View
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="4" style={{ textAlign: 'center', padding: '60px' }}>
-                    No applications found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+  // Build the actions section that will sit on the right side of the white card header
+  const headerActions = (
+    <div className="flex items-center gap-3">
+      <div className="px-3 py-1.5 rounded-full bg-[#F3F4F6] border border-[#E5E7EB] text-sm text-[#374151]">
+        Hello <span className="font-semibold">{session?.userId ? session.userId.substring(0, 6) : "Admin"}</span>
       </div>
-    </FormLayout>
+      <LogoutButton onClick={handleLogout} />
+    </div>
+  );
+
+  return (
+    <AdminShell>
+      <DataCard
+        title="DASHBOARD"
+        actions={headerActions}
+      >
+        <Table columns={columns}>
+          {loading ? (
+            <tr>
+              <td colSpan={4} className="text-center py-16 text-[#374151]">
+                Loading applications…
+              </td>
+            </tr>
+          ) : applications.length > 0 ? (
+            applications.map((app) => (
+              <tr key={app.applicationId} className="hover:bg-[#F9FAFB]">
+                <td className="align-middle text-[#111827]" style={{ padding: "15px" }}>
+                  {app.username || "N/A"}
+                </td>
+                <td className="align-middle text-[#111827]" style={{ padding: "15px" }}>
+                  {app.applicationId || "N/A"}
+                </td>
+                <td className="align-middle" style={{ padding: "15px" }}>
+                  {/* Use StatusBadge for correct color mapping:
+                      - "Submitted" -> light green (your custom 'submitted' tone)
+                      - "Completed" -> success (emerald light green)
+                      - others map as defined
+                  */}
+                  <StatusBadge value={app.status} />
+                </td>
+                <td className="align-middle" style={{ padding: "15px" }}>
+                  <div className="w-full flex items-center justify-start">
+                    <ViewButton
+                      onClick={() => nav(`/admin/applications/${app.applicationId}`)}
+                    />
+                  </div>
+                </td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colSpan={4} className="text-center py-16 text-[#6B7280]">
+                No applications found.
+              </td>
+            </tr>
+          )}
+        </Table>
+      </DataCard>
+    </AdminShell>
   );
 }
