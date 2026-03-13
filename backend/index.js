@@ -21,27 +21,20 @@ import {
 } from "./middleware/auth.js";
 import { validateAnswers, sanitizeAnswers } from "./validation.js";
 
-// Import the crypto module for generating random IDs
+// --- NEW IMPORT FOR AUTH ROUTES ---
+import authRoutes from "./routes/authRoutes.js";
+
 import crypto from "crypto";
-
-// Import the uuid library for generating valid UUIDs
 import { v4 as uuidv4 } from "uuid";
-
-// Function to generate a valid UUID and truncate it for display
-function generate6CharId() {
-  return uuidv4().split("-")[0]; // Generate a UUID and take the first segment (6 characters)
-}
-
 import multer from "multer";
-//const path = require("path");
 import path from "path";
-// Update multer configuration to include original file extension
+
 const storage = multer.diskStorage({
   destination: "uploads/",
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname); // Extract original file extension
-    cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`); // Save file with original extension
+    const ext = path.extname(file.originalname);
+    cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
   },
 });
 const upload = multer({ storage });
@@ -50,6 +43,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
+
+// --- REGISTER AUTH ROUTES ---
+app.use("/test", authRoutes);
 
 const SALT_ROUNDS = 10;
 
@@ -67,11 +63,9 @@ app.post("/test/add-user", async (req, res) => {
       .where(and(eq(users.email, email), eq(users.role, role)));
 
     if (existing.length > 0) {
-      return res
-        .status(400)
-        .json({
-          error: role === "admin" ? "ADMIN_EMAIL_TAKEN" : "USER_EXISTS",
-        });
+      return res.status(400).json({
+        error: role === "admin" ? "ADMIN_EMAIL_TAKEN" : "USER_EXISTS",
+      });
     }
 
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
@@ -83,14 +77,14 @@ app.post("/test/add-user", async (req, res) => {
         email,
         password: hashedPassword,
         role,
-        userId: uuidv4(), // Generate valid UUID for database
+        userId: uuidv4(),
       })
       .returning();
 
     if (role === "admin") {
       return res.json({
         message: "Admin created",
-        adminId: result.userId.substring(0, 6), // Display truncated UUID
+        adminId: result.userId.substring(0, 6),
         user: { ...result, password: undefined },
       });
     }
@@ -108,7 +102,7 @@ app.post("/test/add-user", async (req, res) => {
 /************ LOGIN ************/
 app.post("/test/login", async (req, res) => {
   try {
-    const { email, password, role, adminId } = req.body;
+    const { email, password, role } = req.body;
 
     let user;
 
@@ -135,7 +129,6 @@ app.post("/test/login", async (req, res) => {
       return res.status(401).json({ error: "Incorrect password" });
     }
 
-    // ensure draft exists
     if (user.role === "user") {
       const [firstForm] = await db.select().from(forms).limit(1);
 
@@ -196,7 +189,43 @@ app.post("/test/recover-admin-id", async (req, res) => {
   }
 });
 
-/************ RESET PASSWORD ************/
+/************ COMPLETE RESET PASSWORD (Frontend Link) ************/
+app.post("/test/complete-reset", async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.resetToken, token));
+
+    if (!user) {
+      return res.status(400).json({ error: "Invalid reset token." });
+    }
+
+    // Check if token is expired
+    if (new Date() > new Date(user.resetTokenExpiry)) {
+      return res.status(400).json({ error: "Reset token has expired." });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
+
+    await db
+      .update(users)
+      .set({ 
+        password: hashedPassword,
+        resetToken: null, 
+        resetTokenExpiry: null 
+      })
+      .where(eq(users.userId, user.userId));
+
+    res.json({ message: "Password updated successfully." });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/************ OLD RESET PASSWORD (Manual AdminID) ************/
 app.post("/test/reset-password", async (req, res) => {
   try {
     const { adminId, newPassword } = req.body;
@@ -401,8 +430,6 @@ app.post(
 );
 
 /************ ADMIN ROUTES ************/
-
-// List all applications
 app.get(
   "/admin/applications",
   authenticateToken,
@@ -427,7 +454,6 @@ app.get(
   },
 );
 
-// Get single application
 app.get(
   "/admin/applications/:id",
   authenticateToken,
@@ -478,7 +504,7 @@ app.get(
   },
 );
 
-// File upload endpoint
+/************ FILE UPLOAD ************/
 app.post(
   "/upload",
   authenticateToken,
@@ -489,8 +515,6 @@ app.post(
       if (!req.file) {
         return res.status(400).json({ error: "No file uploaded" });
       }
-
-      // Respond with the file path
       res.json({
         message: "File uploaded successfully",
         filePath: `/uploads/${req.file.filename}`,
@@ -504,7 +528,6 @@ app.post(
 
 /************ START SERVER ************/
 const PORT = process.env.PORT ?? 3000;
-
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });

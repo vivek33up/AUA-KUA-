@@ -20,33 +20,35 @@ export default function ResetPasswordRequest() {
   const [bannerContent, setBannerContent] = useState(null); // Changed to object for better UI
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+// frontend/src/pages/ResetPasswordRequest.jsx
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    setBannerContent(null);
-    setLoading(true);
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setError("");
+  setBannerContent(null);
+  setLoading(true);
 
-    try {
-      const res = await axios.post("http://localhost:3000/test/forgot-password", {
-        email,
-        role,
-      });
+  try {
+    // CHANGE THIS LINE: from /forgot-password to /request-reset
+    const res = await axios.post("http://localhost:3000/test/request-reset", {
+      email,
+      role, // Ensure your backend logic handles the 'role' if needed
+    });
 
-      // Create a navigation link automatically
-      const token = res.data.resetToken;
-      const targetUrl = `/reset-admin-password?role=${role}&token=${token}`;
+    const token = res.data.resetToken;
+    const targetUrl = `/reset-admin-password?role=${role}&token=${token}`;
 
-      setBannerContent({
-        message: res.data.message,
-        url: targetUrl
-      });
-    } catch (err) {
-      setError(err?.response?.data?.error || "Failed to request reset.");
-    } finally {
-      setLoading(false);
-    }
-  };
+    setBannerContent({
+      message: res.data.message,
+      url: targetUrl
+    });
+  } catch (err) {
+    // This will now catch the 404 if the email is missing or 500 on server error
+    setError(err?.response?.data?.error || "Failed to request reset.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <FormLayout>

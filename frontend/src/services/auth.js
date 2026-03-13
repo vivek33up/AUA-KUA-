@@ -1,7 +1,10 @@
 // src/services/auth.js
 // JWT-based auth service — stores token in sessionStorage
+import axios from "axios";
 
 const TOKEN_KEY = "auth:token";
+// Base URL for your backend auth endpoints
+const API_URL = "http://localhost:3000/test";
 
 /** Store the JWT token */
 export function setToken(token) {
@@ -36,7 +39,7 @@ export function getSession() {
       return null;
     }
 
-    // UPDATED: Return the payload spread AND the raw token string
+    // Return the payload spread AND the raw token string
     return { 
       ...payload, 
       token 
@@ -59,3 +62,17 @@ export const isUserAuthenticated = () => getSession()?.role === "user";
 
 /** Check if a user with role "admin" is authenticated */
 export const isAdminAuthenticated = () => getSession()?.role === "admin";
+
+/**
+ * NEW: API call to request a password reset
+ * This targets your backend route: POST http://localhost:3000/test/request-reset
+ */
+export const requestPasswordReset = async (email) => {
+  try {
+    const response = await axios.post(`${API_URL}/request-reset`, { email });
+    return response.data;
+  } catch (error) {
+    // Re-throw the error so your React component can catch it and show an alert
+    throw error.response?.data || { error: "Network error occurred" };
+  }
+};

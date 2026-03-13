@@ -1,33 +1,35 @@
 import express from "express";
 import crypto from "crypto";
-import { db } from "../db/index.js";
+import db from "../db/index.js"; 
 import { users } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 
 const router = express.Router();
 
-/******** FORGOT PASSWORD ********/
-router.post("/forgot-password", async (req, res) => {
+/******** REQUEST PASSWORD RESET ********/
+// Changed to /request-reset to match likely frontend calls
+router.post("/request-reset", async (req, res) => {
   try {
     const { email } = req.body;
 
-    // check if user exists
-    const user = await db
+    // 1. Check if user exists (destructuring to get the first user object)
+    const [user] = await db
       .select()
       .from(users)
       .where(eq(users.email, email));
 
-    if (!user.length) {
-      return res.status(404).json({ message: "User not found" });
+    if (!user) {
+      // Returning 404 so the frontend knows the email doesn't exist
+      return res.status(404).json({ error: "No account found with this email." });
     }
 
-    // generate reset token
+    // 2. Generate secure reset token
     const resetToken = crypto.randomBytes(32).toString("hex");
 
-    // expiry time (1 hour)
+    // 3. Set expiry time (1 hour from now)
     const expiry = new Date(Date.now() + 60 * 60 * 1000);
 
-    // save token in database
+    // 4. Save token and expiry in database
     await db
       .update(users)
       .set({
@@ -36,13 +38,15 @@ router.post("/forgot-password", async (req, res) => {
       })
       .where(eq(users.email, email));
 
+    // 5. Respond with token 
+    // In a real app, you would email a link: /reset-password?token=xxx
     res.json({
-      message: "Reset token generated",
-      resetToken: resetToken, // later this will be sent via email
+      message: "Reset token generated successfully",
+      resetToken: resetToken, 
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    console.error("Auth Route Error:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
