@@ -1,5 +1,6 @@
 // src/App.jsx
 import { Routes, Route, Navigate } from "react-router-dom";
+import Home from "./pages/Home"; //-->
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ApplicationIndex from "./pages/application/ApplicationIndex";
@@ -15,7 +16,7 @@ export default function App() {
   return (
     <Routes>
       {/* 1. Initial Redirect */}
-      <Route path="/" element={<Navigate to="/login" />} />
+      <Route path="/" element={<Home />} /> 
 
       {/* 2. Authentication Pages */}
       <Route path="/login" element={<Login />} />
