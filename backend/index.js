@@ -155,12 +155,13 @@ app.post("/test/login", async (req, res) => {
       }
     }
 
-    const token = generateToken({ userId: user.userId, role: user.role });
+    const token = generateToken({ userId: user.userId, role: user.role,name:user.name });
 
     res.json({
       message: "Login successful",
       userId: user.userId,
       role: user.role,
+      name:user.name,
       token,
     });
   } catch (err) {

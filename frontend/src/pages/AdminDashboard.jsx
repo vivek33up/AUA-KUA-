@@ -66,7 +66,7 @@ export default function AdminDashboard() {
   const headerActions = (
     <div className="flex items-center gap-3">
       <div className="px-3 py-1.5 rounded-full bg-[#F3F4F6] border border-[#E5E7EB] text-sm text-[#374151]">
-        Hello <span className="font-semibold">{session?.userId ? session.userId.substring(0, 6) : "Admin"}</span>
+       <span className="font-semibold">{`Hello ${session?.name ?? "Admin"}`}</span>
       </div>
       <LogoutButton onClick={handleLogout} />
     </div>
