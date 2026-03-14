@@ -42,6 +42,10 @@ export default function Form() {
   const [stepIndex, setStepIndex] = useState(0);
   const [reviewMode, setReviewMode] = useState(false);
   const [submittedApplicationId, setSubmittedApplicationId] = useState(null);
+ const [declarationAccepted, setDeclarationAccepted] = useState(false);
+const [showDeclarationModal, setShowDeclarationModal] = useState(false);
+const [declarationError, setDeclarationError] = useState("");
+const [declarationConfirmed, setDeclarationConfirmed] = useState(false);
   /** ----------------------------- AUTOSAVE ANSWERS ----------------------------- */
   useEffect(() => {
     if (!formMeta?.formId) return;
@@ -120,6 +124,11 @@ export default function Form() {
   const isFirst = stepIndex === 0;
   const isLast = sections.length > 0 && stepIndex === sections.length - 1;
 
+
+  useEffect(() => {
+window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+}, [stepIndex, reviewMode, showDeclarationModal]);
+
   const progressLabel = useMemo(() => {
     if (!sections.length) return "";
     return `Step ${stepIndex + 1} of ${sections.length} — ${currentSection?.title ?? ""}`;
@@ -178,11 +187,52 @@ export default function Form() {
     if (!currentSection) return;
     const sectionErrors = validateAllFields(currentSection.questions, answers);
     if (hasValidationErrors(sectionErrors)) {
-      setFieldErrors(sectionErrors);
-      return;
-    }
-    setStepIndex((prev) => prev + 1);
+setFieldErrors(sectionErrors);
+requestAnimationFrame(() => scrollToFirstInvalidQuestion(sectionErrors));
+return;
+}
+    setStepIndex((prev) => Math.min(prev + 1, sections.length - 1));
   };
+
+  const scrollToFirstInvalidQuestion = (errors) => {
+  if (!currentSection?.questions?.length) return;
+
+  const firstInvalid = currentSection.questions.find(
+    (q) => errors[q.questionId]
+  );
+  if (!firstInvalid) return;
+
+  const container = document.getElementById(
+    'question-' + firstInvalid.questionId
+  );
+  if (!container) return;
+
+  container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+  const focusTarget = container.querySelector('input, textarea, select, button');
+  if (focusTarget && typeof focusTarget.focus === 'function') {
+    focusTarget.focus({ preventScroll: true });
+  }
+};
+
+const scrollToFirstInvalidInSection = (section, errors) => {
+  const firstInvalid = (section?.questions ?? []).find(
+    (q) => errors[q.questionId],
+  );
+  if (!firstInvalid) return;
+
+  const container = document.getElementById("question-" + firstInvalid.questionId);
+  if (!container) return;
+
+  container.scrollIntoView({ behavior: "smooth", block: "center" });
+
+  const focusTarget = container.querySelector("input, textarea, select, button");
+  if (focusTarget && typeof focusTarget.focus === "function") {
+    focusTarget.focus({ preventScroll: true });
+  }
+};
+
+
 
   /** ------------------------- RENDER A SINGLE QUESTION ----------------------- */
   const renderQuestion = (question) => {
@@ -547,14 +597,50 @@ export default function Form() {
     }
   };
 
-  /** ----------------------- BUBBLE CLICK: BACK ONLY -------------------------- */
-  const handleStepBubbleClick = (index) => {
-    // Allow going back or staying on the same step; block forward jumps
-    if (index <= stepIndex) {
-      setStepIndex(index);
-    }
-  };
+  const openDeclarationModal = () => {
+  setDeclarationAccepted(false);
+  setDeclarationError("");
+  setShowDeclarationModal(true);
+};
 
+const closeDeclarationModal = () => {
+  setShowDeclarationModal(false);
+  setDeclarationAccepted(false);
+  setDeclarationError("");
+};
+
+const confirmDeclaration = () => {
+  if (!declarationAccepted) {
+    setDeclarationError("Please accept the declaration to continue.");
+    return;
+  }
+  setDeclarationConfirmed(true);
+  setShowDeclarationModal(false);
+};
+
+
+
+
+  /** ----------------------- BUBBLE CLICK: BACK ONLY -------------------------- */
+const handleStepBubbleClick = (index) => {
+  if (index < 0 || index >= sections.length) return;
+
+  if (index > stepIndex) {
+    for (let i = stepIndex; i < index; i += 1) {
+      const section = sections[i];
+      const errs = validateAllFields(section?.questions ?? [], answers);
+
+      if (hasValidationErrors(errs)) {
+        setFieldErrors((prev) => ({ ...prev, ...errs }));
+        setStepIndex(i);
+        requestAnimationFrame(() => scrollToFirstInvalidInSection(section, errs));
+        return;
+      }
+    }
+  }
+
+  setStepIndex(index);
+};
   /** --------------------------------- RENDER --------------------------------- */
   if (loading) {
     return (
@@ -628,49 +714,49 @@ export default function Form() {
           </h3>
         ) : null}
 
-        {reviewMode ? (
-          <div className="space-y-4">
-            {allQuestions.map((q) => {
-              const value = answers[q.questionId];
+       { reviewMode ? (
+  <div className="space-y-4">
+    {allQuestions.map((q) => {
+      const value = answers[q.questionId];
 
-              return (
-                <div key={q.questionId} className="border-b pb-3">
-                  <Label>{q.questionText}</Label>
-                  <div className="text-gray-700">
-                    {q.fieldType === "file" && value ? (
-                      <a
-                        href={`http://localhost:3000/uploads/${value}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 underline"
-                      >
-                        View uploaded file
-                      </a>
-                    ) : Array.isArray(value) ? (
-                      value.join(", ")
-                    ) : (
-                      value || "—"
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+      return (
+        <div key={q.questionId} className="border-b pb-3">
+          <Label>{q.questionText}</Label>
+          <div className="text-gray-700">
+            {q.fieldType === "file" && value ? (
+              <a
+                href={`http://localhost:3000/uploads/${value}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 underline"
+              >
+                View uploaded file
+              </a>
+            ) : Array.isArray(value) ? (
+              value.join(", ")
+            ) : (
+              value || "—"
+            )}
           </div>
-        ) : (
-          <div className="space-y-4">
-            {(currentSection?.questions ?? []).map((question) => (
-              <div key={question.questionId}>
-                <Label>
-                  {question.questionText}
-                  {question.isRequired ? (
-                    <span className="text-red-600"> *</span>
-                  ) : null}
-                </Label>
-                {renderQuestion(question)}
-              </div>
-            ))}
-          </div>
-        )}
+        </div>
+      );
+    })}
+  </div>
+) : (
+  <div className="space-y-4">
+    {(currentSection?.questions ?? []).map((question) => (
+      <div key={question.questionId} id={"question-" + question.questionId} className="scroll-mt-24">
+        <Label>
+          {question.questionText}
+          {question.isRequired ? (
+            <span className="text-red-600"> *</span>
+          ) : null}
+        </Label>
+        {renderQuestion(question)}
+      </div>
+    ))}
+  </div>
+)}
 
         {submitMessage ? (
           <div className="mt-5">
@@ -682,43 +768,114 @@ export default function Form() {
           <SecondaryButton
             type="button"
             onClick={() => {
-              if (reviewMode) {
-                setReviewMode(false);
-              } else if (!isFirst) {
-                setStepIndex((prev) => prev - 1);
-              }
-            }}
+if (reviewMode) {
+setReviewMode(false);
+setDeclarationConfirmed(false);
+} else if (!isFirst) {
+setStepIndex((prev) => prev - 1);
+}
+}}
             disabled={isFirst || submitting}
           >
             Back
           </SecondaryButton>
 
           {!isLast ? (
-            <PrimaryButton
-              type="button"
-              onClick={handleNext}
-              disabled={submitting}
-            >
-              Next
-            </PrimaryButton>
-          ) : !reviewMode ? (
-            <PrimaryButton type="button" onClick={() => setReviewMode(true)}>
-              Review Answers
-            </PrimaryButton>
-          ) : (
-            <AnimatedCtaButton
-              type="button"
-              onClick={handleSubmit}
-              disabled={submitting || submitted}
-            >
-              {submitted
-                ? "Submitted"
-                : submitting
-                  ? "Submitting..."
-                  : "Submit Application"}
-            </AnimatedCtaButton>
-          )}
+  <PrimaryButton type="button" onClick={handleNext} disabled={submitting}>
+    Next
+  </PrimaryButton>
+) : !declarationConfirmed ? (
+  <button
+    type="button"
+    onClick={openDeclarationModal}
+    className="font-semibold text-yellow-400 underline decoration-yellow-400 underline-offset-2"
+  >
+    Declaration
+  </button>
+) : !reviewMode ? (
+  <PrimaryButton type="button" onClick={() => setReviewMode(true)}>
+    Review Answers
+  </PrimaryButton>
+) : (
+  <AnimatedCtaButton
+    type="button"
+    onClick={handleSubmit}
+    disabled={submitting || submitted}
+  >
+    {submitted ? "Submitted" : submitting ? "Submitting..." : "Submit Application"}
+  </AnimatedCtaButton>
+)}
         </div>
+
+        {showDeclarationModal && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+    <div className="w-full max-w-2xl rounded-xl bg-white p-6 shadow-2xl">
+      <h2 className="mb-3 text-xl font-bold text-slate-900">Declaration / Undertaking</h2>
+
+      <div className="max-h-72 space-y-3 overflow-y-auto pr-1 text-sm text-slate-700">
+  <p>
+    It is hereby declared that the information furnished in this application form is true and correct to the best of its knowledge and that no material particulars or information have been concealed or withheld, and that I hereby undertakes—
+  </p>
+  <ol className="list-decimal ml-5 space-y-2">
+    <li>
+      to abide by the provisions of the Aadhaar (Targeted Delivery of Financial and Other Subsidies, Benefits and Services) Act, 2016 (“Aadhaar Act”) and the regulations made thereunder;
+    </li>
+    <li>
+      to facilitate, on receipt of in-principle approval from UIDAI, audit as per UIDAI “Compliance Checklist for Onboarding the Requesting Entity” and submit all compliance related documents attached as annexures before signing the AUA/KUA Agreement;
+    </li>
+    <li>
+      to fulfil all requirements with respect to use of the Aadhaar Authentication facility as per the Aadhaar (Authentication and Offline Verification) Regulations, 2021;
+    </li>
+    <li>
+      to set up and maintain within the territory of India, at all times, requisite infrastructure (including, but not limited to, servers, databases etc.) for the use of Aadhaar Authentication facilities, capable of handling a minimum of one lakh Authentication transactions per month;
+    </li>
+    <li>
+      to carry out appropriate due diligence before engaging any sub-contractor, business correspondent or field operator for performing any functions in relation to the use of Aadhaar Authentication facilities, including onboarding of user/beneficiary/customer, Authentication application development, etc.;
+    </li>
+    <li>
+      to store Aadhaar numbers, if authorised so to do, only in the Aadhaar Data Vault, in accordance with such policies, procedures, standards and technical specifications as UIDAI may specify from time to time;
+    </li>
+    <li>
+      to ensure the carrying out of audit of its own operations and systems and those of its Sub-AUAs and Sub-KUAs, if any, as required under the Aadhaar Act, the regulations made thereunder and the AUA Agreement;
+    </li>
+    <li>
+      not to share or disclose e-KYC data that may be received on use of e-KYC Authentication facility, except in accordance with the provisions of the Aadhaar Act and the regulations made thereunder; and
+    </li>
+    <li>
+      to inform UIDAI forthwith of any change in the name, address and other particulars of the applicant and contact persons as furnished in this application form.
+    </li>
+  </ol>
+</div>
+
+      <label className="mt-4 flex items-start gap-2 text-sm text-slate-800">
+        <input
+          type="checkbox"
+          className="mt-0.5"
+          checked={declarationAccepted}
+          onChange={(e) => {
+            setDeclarationAccepted(e.target.checked);
+            if (e.target.checked) setDeclarationError("");
+          }}
+        />
+        <span>I have read and accept the declaration.</span>
+      </label>
+
+      {declarationError ? (
+        <p className="mt-2 text-sm font-medium text-red-600">{declarationError}</p>
+      ) : null}
+
+      <div className="mt-5 flex items-center justify-end gap-3">
+        <SecondaryButton type="button" onClick={closeDeclarationModal}>
+          Cancel
+        </SecondaryButton>
+        <PrimaryButton type="button" onClick={confirmDeclaration}>
+          I Accept
+        </PrimaryButton>
+      </div>
+    </div>
+  </div>
+)}
+       
       </WizardShell>
     </FormLayout>
   );

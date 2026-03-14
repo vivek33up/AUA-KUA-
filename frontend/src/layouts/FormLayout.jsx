@@ -260,7 +260,7 @@ export function BubbleStepper({ sections = [], currentIndex = 0, onStepClick }) 
         {steps.map((s, i) => {
           const done = i < currentIndex;
           const active = i === currentIndex;
-          const allowed = i <= currentIndex; // only allow back/current
+          const allowed = s.disabled !== true;
           const disabled = !canClick || !allowed;
 
           return (
@@ -271,6 +271,7 @@ export function BubbleStepper({ sections = [], currentIndex = 0, onStepClick }) 
                   type="button"
                   onClick={() => { if (!disabled) onStepClick(i); }}
                   disabled={disabled}
+                  aria-disabled={disabled}
                   aria-current={active ? "step" : undefined}
                   aria-label={`Step ${i + 1}${s.title ? `: ${s.title}` : ""}`}
                   className={[

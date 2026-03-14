@@ -58,7 +58,7 @@ export const VALIDATION_RULES = {
     errorMessage: "Please choose a file"
   },
 
-  "MPOC Name": {
+  "Management Point of Contact (MPOC) Name": {
   required: true,
   minLength: 2,
   maxLength: 100,
@@ -86,7 +86,7 @@ export const VALIDATION_RULES = {
     errorMessage: "Enter a valid mobile number"
   },
 
-  "TPOC Name": {
+  "Technical Point of Contact (TPOC) Name": {
   required: true,
   minLength: 2,
   maxLength: 100,

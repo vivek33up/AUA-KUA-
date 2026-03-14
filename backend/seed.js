@@ -159,7 +159,7 @@ const formStructure = [
       },
       {
         text: "Operator assisted or self use",
-        type: "checkbox",
+        type: "radio",
         required: true,
         options: [
           "Operator-assisted use",
