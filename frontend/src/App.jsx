@@ -5,7 +5,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ApplicationIndex from "./pages/application/ApplicationIndex";
 import AdminDashboard from "./pages/AdminDashboard";
-import RecoverAdminId from "./pages/RecoverAdminId";
+
 import Form from "./pages/Form";
 import AdminApplications from "./pages/AdminApplications";
 import AdminViewApplication from "./pages/AdminViewApplication";
@@ -23,7 +23,6 @@ export default function App() {
       <Route path="/signup" element={<Signup />} />
 
       {/* 3. Password & ID Recovery Flow */}
-      <Route path="/recover-admin-id" element={<RecoverAdminId />} />
       <Route path="/forgot-password" element={<ResetPasswordRequest />} />
       <Route path="/reset-admin-password" element={<ResetAdminPassword />} />
     

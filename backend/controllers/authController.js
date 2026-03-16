@@ -110,20 +110,6 @@ export async function login(req, res) {
   }
 }
 
-export async function recoverAdminId(req, res) {
-  try {
-    const { email } = req.body;
-    const [admin] = await findUserByEmailAndRole(email, "admin");
-
-    if (!admin) {
-      return res.status(404).json({ error: "No admin account found" });
-    }
-
-    return res.json({ adminId: admin.userId });
-  } catch (err) {
-    return res.status(500).json({ error: err.message });
-  }
-}
 
 export async function completeReset(req, res) {
   try {
